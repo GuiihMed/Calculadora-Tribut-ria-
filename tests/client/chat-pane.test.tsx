@@ -407,4 +407,289 @@ describe('Task 11 Chat Copilot Pane, FileDropComposer & MessageBubble', () => {
     fireEvent.click(screen.getByRole('button', { name: /Reprocessar no Motor Local TS/i }));
     expect(onRetryForceLocal).toHaveBeenCalledTimes(1);
   });
+
+  it('exercises built-in handleDefaultForceLocal for Simples Nacional (without cst) and Comparativo Regimes', async () => {
+    const onSnapshotCreated = vi.fn();
+    const calculatePayloads: unknown[] = [];
+    const comparePayloads: unknown[] = [];
+
+    const simplesDraftWithoutCst: ExtractionDraft = {
+      id: 'draft-sn-1',
+      sessionId: 'sess-sn',
+      sourceType: 'csv',
+      filename: 'simples.csv',
+      context: { regime: 'simples-nacional', dhFatoGerador: '2027-02-01' },
+      itens: [
+        {
+          nObj: 1,
+          descricao: 'Consultoria Anexo III',
+          cAtivSN: '21',
+          cClassTrib: '000001',
+          baseCalculo: '5000.00',
+          pIBSSN: '1.50',
+          pCBSSN: '2.50',
+          confidence: { baseCalculo: 'high', cClassTrib: 'high' },
+          missingFields: [],
+        },
+      ],
+      warnings: [],
+      requiresReview: false,
+      createdAt: '2026-11-17T12:00:00.000Z',
+    };
+
+    const simplesLocalSnapshot: CalcRunSnapshot = {
+      id: 'run-sn-local-1',
+      sessionId: 'sess-sn',
+      kind: 'simples_nacional',
+      engineMode: 'local-ts',
+      dhFatoGerador: '2027-02-01',
+      context: { regime: 'simples-nacional', dhFatoGerador: '2027-02-01', tipoDfe: '55', crt: 1 },
+      input: {},
+      output: {
+        dhFatoGerador: '2027-02-01',
+        tpDoc: 55,
+        CRT: 1,
+        errosGlobais: [],
+        avisos: [],
+        itens: [],
+        totais: {
+          vBC: '5000.00',
+          vIBSSN: '75.00',
+          vCBSSN: '125.00',
+          vIBSPendSusp: '0.00',
+          vCBSPendSusp: '0.00',
+          totalGeral: '200.00',
+        },
+      },
+      xWarningDadosSimulados: false,
+      createdAt: '2026-11-17T12:00:00.000Z',
+    };
+
+    const comparativoSnapshot: CalcRunSnapshot = {
+      id: 'run-cmp-local-1',
+      sessionId: 'sess-cmp',
+      kind: 'comparativo',
+      engineMode: 'local-ts',
+      dhFatoGerador: '2027-02-01',
+      context: { regime: 'comparativo', dhFatoGerador: '2027-02-01', tipoDfe: '55', uf: 'RS' },
+      input: {},
+      output: {
+        elegivel: true,
+        dhFatoGerador: '2027-02-01',
+        cenarios: [
+          {
+            cenario: 'regime_regular',
+            titulo: 'Regime Regular',
+            totalIS: '0.00',
+            totalCBS: '450.00',
+            totalIBS: '50.00',
+            totalTributos: '500.00',
+            apropriacaoCreditoAdquirente: 'Integral',
+            observacoes: [],
+            erros: [],
+          },
+        ],
+        avisos: [],
+      },
+      xWarningDadosSimulados: false,
+      createdAt: '2026-11-17T12:00:00.000Z',
+    };
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/chat') {
+        return new Response(
+          JSON.stringify({
+            code: 'REMOTE_ENGINE_UNAVAILABLE',
+            capability: 'simplesNacional',
+            endpoint: 'http://localhost:8082',
+            message: 'Serviço Simples Nacional remoto indisponível.',
+            canForceLocal: true,
+          }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url === '/api/fiscal/calculate') {
+        calculatePayloads.push(JSON.parse(String(init?.body ?? '{}')));
+        return new Response(
+          JSON.stringify({ calcRunId: simplesLocalSnapshot.id, snapshot: simplesLocalSnapshot }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url === '/api/fiscal/compare') {
+        comparePayloads.push(JSON.parse(String(init?.body ?? '{}')));
+        return new Response(
+          JSON.stringify({ calcRunId: comparativoSnapshot.id, snapshot: comparativoSnapshot }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response('{}', { status: 404 });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    // 1. Simples Nacional without cst
+    const { rerender } = render(
+      <ChatPane
+        sessionId="sess-sn"
+        activeContext={{ regime: 'simples-nacional', dhFatoGerador: '2027-02-01', tipoDfe: '55', crt: 1 }}
+        messages={[]}
+        activeDraft={simplesDraftWithoutCst}
+        onSnapshotCreated={onSnapshotCreated}
+      />,
+    );
+
+    const textarea = screen.getByRole('textbox');
+    fireEvent.change(textarea, { target: { value: 'Calcular Simples Nacional' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+
+    const retryBtn = await screen.findByRole('button', { name: /Reprocessar no Motor Local TS/i });
+    fireEvent.click(retryBtn);
+
+    await waitFor(() => {
+      expect(calculatePayloads).toHaveLength(1);
+    });
+    expect(calculatePayloads[0]).toMatchObject({
+      regime: 'simples-nacional',
+      forceLocal: true,
+      sessionId: 'sess-sn',
+      input: {
+        itens: [
+          {
+            cAtivSN: '21',
+            cClassTrib: '000001',
+            baseCalculo: '5000.00',
+          },
+        ],
+      },
+    });
+    expect(onSnapshotCreated).toHaveBeenCalledWith(simplesLocalSnapshot);
+    await waitFor(() => {
+      expect(screen.getByText(/run-sn-local-1/)).toBeInTheDocument();
+    });
+
+    // 2. Comparativo Regimes calls /api/fiscal/compare with forceLocal: true
+    const comparativoDraft: ExtractionDraft = {
+      ...simplesDraftWithoutCst,
+      id: 'draft-cmp-1',
+      itens: [
+        {
+          ...simplesDraftWithoutCst.itens[0]!,
+          cst: '000',
+        },
+      ],
+    };
+
+    rerender(
+      <ChatPane
+        sessionId="sess-cmp"
+        activeContext={{ regime: 'comparativo', dhFatoGerador: '2027-02-01', tipoDfe: '55', uf: 'RS' }}
+        messages={[]}
+        activeDraft={comparativoDraft}
+        onSnapshotCreated={onSnapshotCreated}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Comparar regimes 2027' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', shiftKey: false });
+
+    const retryCmpBtn = await screen.findByRole('button', { name: /Reprocessar no Motor Local TS/i });
+    fireEvent.click(retryCmpBtn);
+
+    await waitFor(() => {
+      expect(comparePayloads).toHaveLength(1);
+    });
+    expect(comparePayloads[0]).toMatchObject({
+      forceLocal: true,
+      sessionId: 'sess-cmp',
+    });
+    expect(onSnapshotCreated).toHaveBeenCalledWith(comparativoSnapshot);
+  });
+
+  it('resets transient state on session switch and ignores late SSE events from previous session stream', async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const encoder = new TextEncoder();
+    const onSnapshotCreated = vi.fn();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/upload') {
+          return new Response(
+            JSON.stringify({
+              drafts: [SAMPLE_DRAFT],
+              attachmentSummary: 'Arquivo: fatura-servico.pdf',
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url === '/api/chat') {
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              streamController = controller;
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'text_delta', delta: 'Sessão A: ' })}\n\n`),
+              );
+            },
+          });
+          return new Response(stream, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+          });
+        }
+        return new Response('{}', { status: 404 });
+      }),
+    );
+
+    const { container, rerender } = render(
+      <ChatPane
+        sessionId="sess-A"
+        activeContext={BASE_CONTEXT}
+        messages={[]}
+        onSnapshotCreated={onSnapshotCreated}
+      />,
+    );
+
+    // Stage an attachment on sess-A, then start a slow stream
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const pdfFile = new File(['%PDF-1.4'], 'fatura-servico.pdf', { type: 'application/pdf' });
+    fireEvent.change(fileInput, { target: { files: [pdfFile] } });
+    await waitFor(() => {
+      expect(screen.getByText('fatura-servico.pdf')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Pergunta da sessão A' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', shiftKey: false });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sessão A:/)).toBeInTheDocument();
+    });
+
+    // Switch to sess-B while sess-A stream is still open
+    rerender(
+      <ChatPane
+        sessionId="sess-B"
+        activeContext={BASE_CONTEXT}
+        messages={[]}
+        onSnapshotCreated={onSnapshotCreated}
+      />,
+    );
+
+    // Emit late events on sess-A's stream after switching to sess-B
+    streamController?.enqueue(
+      encoder.encode(`data: ${JSON.stringify({ type: 'calc_run', snapshot: SAMPLE_SNAPSHOT })}\n\n`),
+    );
+    streamController?.enqueue(
+      encoder.encode(`data: ${JSON.stringify({ type: 'text_delta', delta: 'CONTEUDO_VAZADO_SESSAO_A' })}\n\n`),
+    );
+    streamController?.close();
+
+    // Wait a tick to ensure late events would have processed if unguarded
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(screen.queryByText(/CONTEUDO_VAZADO_SESSAO_A/)).not.toBeInTheDocument();
+    expect(screen.queryByText('fatura-servico.pdf')).not.toBeInTheDocument();
+    expect(onSnapshotCreated).not.toHaveBeenCalled();
+  });
 });

@@ -91,6 +91,7 @@ export function App() {
       setMessages(detail.messages);
       setSessionCalcRuns(detail.calcRuns);
       setActiveDraft(null);
+      setDraftsById({});
       setActiveContext({
         ...DEFAULT_OPERATION_CONTEXT,
         ...detail.session.activeContext,
@@ -148,6 +149,7 @@ export function App() {
       setMessages([]);
       setSessionCalcRuns([]);
       setActiveDraft(null);
+      setDraftsById({});
       setActiveSnapshot(null);
       setStatusMessage(null);
     } catch (err) {

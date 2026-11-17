@@ -9,6 +9,7 @@ import type {
 import {
   ApiError,
   calculateFiscal,
+  compareFiscalRegimes,
   streamChatTurn,
   uploadFiles,
 } from '../api/client';
@@ -108,11 +109,31 @@ export function ChatPane({
 
   const messagesRef = useRef<ChatMessageItem[]>(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const streamRunIdRef = useRef(0);
+  const uploadRunIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesRef.current = messages;
     setInternalMessages(messages);
   }, [messages]);
+
+  useEffect(() => {
+    streamRunIdRef.current += 1;
+    uploadRunIdRef.current += 1;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+
+    setAttachments([]);
+    setUploadedBatches([]);
+    setChatError(null);
+    setLastPrompt(undefined);
+    setActiveTools([]);
+    setIsStreaming(false);
+    setIsUploading(false);
+    setLocalSnapshotsById({});
+    setLocalDraftsById({});
+  }, [sessionId]);
 
   const commitMessages = (
     updater: (prev: ChatMessageItem[]) => ChatMessageItem[],
@@ -134,6 +155,7 @@ export function ChatPane({
       return;
     }
 
+    const uploadRunId = ++uploadRunIdRef.current;
     setChatError(null);
     setIsUploading(true);
 
@@ -149,6 +171,10 @@ export function ChatPane({
 
     try {
       const res = await uploadFiles(files, sessionId ?? undefined);
+      if (uploadRunIdRef.current !== uploadRunId) {
+        return;
+      }
+
       const returnedDrafts = res.drafts ?? [];
 
       setAttachments((prev) =>
@@ -183,6 +209,9 @@ export function ChatPane({
         }
       }
     } catch (err) {
+      if (uploadRunIdRef.current !== uploadRunId) {
+        return;
+      }
       const msg =
         err instanceof ApiError
           ? err.message
@@ -196,7 +225,9 @@ export function ChatPane({
         ),
       );
     } finally {
-      setIsUploading(false);
+      if (uploadRunIdRef.current === uploadRunId) {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -217,6 +248,11 @@ export function ChatPane({
     if (!trimmed || isStreaming) {
       return;
     }
+
+    const runId = ++streamRunIdRef.current;
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     setChatError(null);
     setLastPrompt(trimmed);
@@ -263,8 +299,13 @@ export function ChatPane({
           attachmentSummary: combinedSummary || undefined,
           activeContext,
           stream: true,
+          signal: abortController.signal,
         },
         (ev) => {
+          if (streamRunIdRef.current !== runId) {
+            return;
+          }
+
           if (ev.type === 'text_delta') {
             commitMessages((prev) =>
               prev.map((m) =>
@@ -390,6 +431,10 @@ export function ChatPane({
         },
       );
 
+      if (streamRunIdRef.current !== runId) {
+        return;
+      }
+
       if (result.sessionId && result.sessionId !== sessionId) {
         onSessionResolved?.(result.sessionId);
       }
@@ -400,6 +445,13 @@ export function ChatPane({
         ),
       );
     } catch (err) {
+      if (
+        streamRunIdRef.current !== runId ||
+        (err instanceof Error && err.name === 'AbortError')
+      ) {
+        return;
+      }
+
       const remoteErr = toRemoteEngineError(err);
       const errMessage =
         err instanceof Error
@@ -436,8 +488,13 @@ export function ChatPane({
         );
       }
     } finally {
-      setIsStreaming(false);
-      setActiveTools([]);
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+      if (streamRunIdRef.current === runId) {
+        setIsStreaming(false);
+        setActiveTools([]);
+      }
     }
   };
 
@@ -451,49 +508,96 @@ export function ChatPane({
     }
 
     if (activeDraft && activeDraft.itens.length > 0) {
-      const validItems = activeDraft.itens.filter((it) => it.cst && it.cClassTrib);
+      const regime = activeContext.regime ?? 'regime-regular';
+      const validItems =
+        regime === 'simples-nacional'
+          ? activeDraft.itens.filter((it) => Boolean(it.cClassTrib))
+          : activeDraft.itens.filter((it) => Boolean(it.cst && it.cClassTrib));
+
       if (validItems.length > 0) {
         try {
           setChatError(null);
-          const isSimples = activeContext.regime === 'simples-nacional';
-          const res = await calculateFiscal({
-            regime: isSimples ? 'simples-nacional' : 'regime-regular',
-            sessionId: sessionId ?? undefined,
-            context: activeContext,
-            forceLocal: true,
-            input: isSimples
-              ? {
-                  dhFatoGerador: activeContext.dhFatoGerador ?? '2027-01-01',
-                  tpDoc: Number(activeContext.tipoDfe === '65' ? 65 : 55),
-                  CRT: activeContext.crt ?? 1,
-                  tpRegimeIBSCBS: activeContext.tpRegimeIBSCBS ?? 2,
-                  itens: validItems.map((it) => ({
-                    nObj: it.nObj,
-                    cAtivSN: it.cAtivSN ?? '11',
-                    cClassTrib: it.cClassTrib!,
-                    cst: it.cst,
-                    baseCalculo: it.baseCalculo ?? '0.00',
-                    pIBSSN: it.pIBSSN ?? null,
-                    pCBSSN: it.pCBSSN ?? null,
-                  })),
-                }
-              : {
-                  dhFatoGerador: activeContext.dhFatoGerador ?? '2026-07-01',
-                  uf: activeContext.uf ?? 'RS',
-                  municipio: activeContext.municipio,
-                  tipoDfe: activeContext.tipoDfe ?? '55',
-                  itens: validItems.map((it) => ({
-                    nObj: it.nObj,
-                    descricao: it.descricao,
-                    ncm: it.ncm,
-                    nbs: it.nbs,
-                    cst: it.cst!,
-                    cClassTrib: it.cClassTrib!,
-                    baseCalculo: it.baseCalculo ?? '0.00',
-                    aliquotasNominais: it.aliquotasNominais,
-                  })),
-                },
-          });
+          const res =
+            regime === 'comparativo'
+              ? await compareFiscalRegimes({
+                  sessionId: sessionId ?? undefined,
+                  context: activeContext,
+                  forceLocal: true,
+                  input: {
+                    dhFatoGerador: activeContext.dhFatoGerador ?? '2027-01-01',
+                    tpDoc: Number(
+                      activeContext.tipoDfe === '65'
+                        ? 65
+                        : activeContext.tipoDfe === 'NFSE'
+                          ? 99
+                          : 55,
+                    ),
+                    uf: activeContext.uf ?? 'RS',
+                    municipio: activeContext.municipio,
+                    tpEnteGov: activeContext.tpEnteGov,
+                    itens: validItems.map((it) => ({
+                      nObj: it.nObj,
+                      descricao: it.descricao,
+                      ncm: it.ncm,
+                      nbs: it.nbs,
+                      cst: it.cst!,
+                      cClassTrib: it.cClassTrib!,
+                      cAtivSN: it.cAtivSN ?? '11',
+                      baseCalculo: it.baseCalculo ?? '0.00',
+                      aliquotasNominais: it.aliquotasNominais ?? {},
+                      pIBSSN: it.pIBSSN ?? null,
+                      pCBSSN: it.pCBSSN ?? null,
+                    })),
+                  },
+                })
+              : await calculateFiscal({
+                  regime:
+                    regime === 'simples-nacional' ? 'simples-nacional' : 'regime-regular',
+                  sessionId: sessionId ?? undefined,
+                  context: activeContext,
+                  forceLocal: true,
+                  input:
+                    regime === 'simples-nacional'
+                      ? {
+                          dhFatoGerador: activeContext.dhFatoGerador ?? '2027-01-01',
+                          tpDoc: Number(
+                            activeContext.tipoDfe === '65'
+                              ? 65
+                              : activeContext.tipoDfe === 'NFSE'
+                                ? 99
+                                : 55,
+                          ),
+                          CRT: activeContext.crt ?? 1,
+                          tpRegimeIBSCBS: activeContext.tpRegimeIBSCBS ?? 2,
+                          tpEnteGov: activeContext.tpEnteGov,
+                          itens: validItems.map((it) => ({
+                            nObj: it.nObj,
+                            descricao: it.descricao,
+                            cAtivSN: it.cAtivSN ?? '11',
+                            cClassTrib: it.cClassTrib!,
+                            ...(it.cst ? { cst: it.cst } : {}),
+                            baseCalculo: it.baseCalculo ?? '0.00',
+                            pIBSSN: it.pIBSSN ?? null,
+                            pCBSSN: it.pCBSSN ?? null,
+                          })),
+                        }
+                      : {
+                          dhFatoGerador: activeContext.dhFatoGerador ?? '2026-07-01',
+                          uf: activeContext.uf ?? 'RS',
+                          municipio: activeContext.municipio,
+                          tipoDfe: activeContext.tipoDfe ?? '55',
+                          itens: validItems.map((it) => ({
+                            nObj: it.nObj,
+                            descricao: it.descricao,
+                            ncm: it.ncm,
+                            nbs: it.nbs,
+                            cst: it.cst!,
+                            cClassTrib: it.cClassTrib!,
+                            baseCalculo: it.baseCalculo ?? '0.00',
+                            aliquotasNominais: it.aliquotasNominais,
+                          })),
+                        },
+                });
 
           setLocalSnapshotsById((prev) => ({
             ...prev,
