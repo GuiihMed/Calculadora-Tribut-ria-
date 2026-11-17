@@ -250,6 +250,7 @@ export function StagingTab({
 
   const handleRemoveItem = (index: number) => {
     if (!draft) return;
+    setLookup(null);
     const nextItens = draft.itens.filter((_, i) => i !== index);
     onDraftChange({
       ...draft,
@@ -417,7 +418,13 @@ export function StagingTab({
               vCOFINS: cleanDecimal(item.vCOFINS) ?? '0',
             },
       });
-      setBaseResult(res.output as BaseCalculoUnificadaOutput);
+      const normalizedOutput: BaseCalculoUnificadaOutput = {
+        baseRG: res.output.baseRG,
+        baseIS: 'baseIS' in res.output && res.output.baseIS ? res.output.baseIS : '0.00',
+        baseSN: res.output.baseSN,
+        avisos: res.output.avisos ?? [],
+      };
+      setBaseResult(normalizedOutput);
     } catch (err) {
       setBaseError(
         err instanceof Error
@@ -969,7 +976,7 @@ export function StagingTab({
 
                     <div className="staging-field">
                       <label htmlFor={`st-vicms-${idx}`}>
-                        vICMS (Item {itemNum})
+                        vICMS / vISS (Item {itemNum})
                       </label>
                       <input
                         id={`st-vicms-${idx}`}
@@ -1291,7 +1298,7 @@ export function StagingTab({
               </select>
             </div>
             <p className="aux-panel__hint">
-              Usa vProd, vFrete, vDesc, vICMS, vPIS e vCOFINS do item selecionado conforme
+              Usa vProd, vFrete, vDesc, vICMS/vISS, vPIS e vCOFINS do item selecionado conforme
               vigência ({dhFatoGerador.slice(0, 4)}).
             </p>
             <button

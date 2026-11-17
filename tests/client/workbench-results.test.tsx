@@ -662,4 +662,130 @@ describe('Task 12 Fiscal Workbench — ContextBar, StagingTab, ResultsTab & Work
     fireEvent.click(screen.getByRole('tab', { name: /Resultado & Créditos/i }));
     expect(onTabChange).toHaveBeenCalledWith('results');
   });
+
+  it('renders >200 municipios without truncation, normalizes NFSE baseIS & clears lookup on remove, and renders base_unificada in ResultsTab', async () => {
+    const manyMunicipios = [
+      ...Array.from({ length: 205 }, (_, i) => ({
+        muniCd: 4300001 + i,
+        ufCd: 43,
+        nome: `Cidade ${i + 1}`,
+        ufSigla: 'RS',
+      })),
+      { muniCd: 4314902, ufCd: 43, nome: 'Porto Alegre', ufSigla: 'RS' },
+    ];
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/dados-abertos/uf') {
+          return new Response(
+            JSON.stringify({ items: [{ ufCd: 43, nome: 'Rio Grande do Sul', sigla: 'RS' }] }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.startsWith('/api/dados-abertos/municipios')) {
+          return new Response(JSON.stringify({ items: manyMunicipios }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        if (url.startsWith('/api/dados-abertos/ncm')) {
+          return new Response(
+            JSON.stringify({
+              items: [
+                { ncmCd: '22021000', descricao: 'Águas', inicioVigencia: '2026-01-01', fimVigencia: null },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url === '/api/fiscal/base-unificada') {
+          return new Response(
+            JSON.stringify({
+              calcRunId: 'run-bu-nfse',
+              snapshot: SIMULATED_REGULAR_SNAPSHOT,
+              output: {
+                baseRG: '900.00',
+                baseSN: '1000.00',
+                avisos: ['Regra NFS-e aplicada'],
+                erros: [],
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response('{}', { status: 404 });
+      }),
+    );
+
+    const { rerender, container } = render(
+      <ContextBar context={BASE_CONTEXT} onContextPatch={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      const select = container.querySelector('#ctx-municipio') as HTMLSelectElement;
+      expect(select?.tagName).toBe('SELECT');
+      expect(select.value).toBe('4314902');
+      expect(screen.getByText(/Porto Alegre \(4314902\)/)).toBeInTheDocument();
+    });
+
+    function NfseStagingHarness() {
+      const [draft, setDraft] = useState<ExtractionDraft | null>(SAMPLE_DRAFT);
+      return (
+        <StagingTab
+          draft={draft}
+          activeContext={{ ...BASE_CONTEXT, tipoDfe: 'NFSE' }}
+          sessionId="sess-1"
+          onDraftChange={setDraft}
+          onSnapshotCreated={vi.fn()}
+          onNavigateTab={vi.fn()}
+        />
+      );
+    }
+
+    rerender(<NfseStagingHarness />);
+    expect(screen.getByLabelText(/vICMS \/ vISS \(Item 1\)/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Calcular Base Unificada/i }));
+    await waitFor(() => {
+      expect(screen.getByText('0.00')).toBeInTheDocument();
+      expect(screen.getByText('900.00')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Buscar NCM \(Item 1\)/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/22021000 — Águas/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Remover Item 1/i }));
+    expect(screen.queryByText(/Dados Abertos RFB/i)).not.toBeInTheDocument();
+
+    const baseUnificadaSnapshot: CalcRunSnapshot = {
+      id: 'run-bu-1',
+      sessionId: 'sess-1',
+      kind: 'base_unificada',
+      engineMode: 'local-ts',
+      dhFatoGerador: '2027-01-01',
+      context: BASE_CONTEXT,
+      input: {},
+      output: {
+        baseRG: '870.00',
+        baseIS: '840.00',
+        baseSN: '1060.00',
+        avisos: ['PIS/COFINS extintos em 2027'],
+      },
+      xWarningDadosSimulados: false,
+      createdAt: '2026-11-17T12:20:00.000Z',
+    };
+
+    rerender(<ResultsTab snapshot={baseUnificadaSnapshot} />);
+    expect(screen.getByText('Base Regime Regular')).toBeInTheDocument();
+    expect(screen.getByText('Base Imposto Seletivo')).toBeInTheDocument();
+    expect(screen.getByText('Base Simples Nacional')).toBeInTheDocument();
+    expect(screen.getByText('870.00')).toHaveClass('tabular-nums');
+    expect(screen.getByText('840.00')).toHaveClass('tabular-nums');
+    expect(screen.getByText('1060.00')).toHaveClass('tabular-nums');
+    expect(screen.getByText(/PIS\/COFINS extintos em 2027/i)).toBeInTheDocument();
+  });
 });

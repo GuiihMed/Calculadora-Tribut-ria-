@@ -185,7 +185,7 @@ export function ContextBar({ context, onContextPatch }: ContextBarProps) {
               {!hasCurrentMunicipioInList && currentMunicipio !== undefined && (
                 <option value={String(currentMunicipio)}>IBGE {currentMunicipio}</option>
               )}
-              {municipios.slice(0, 200).map((m) => (
+              {municipios.map((m) => (
                 <option key={m.muniCd} value={String(m.muniCd)}>
                   {m.nome} ({m.muniCd})
                 </option>

@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  BaseCalculoUnificadaOutput,
   CalcRunSnapshot,
   CreditIndicators,
   EstadoItem,
@@ -381,6 +382,68 @@ export function ResultsTab({
           )}
         </div>
       </article>
+    );
+  }
+
+  if (snapshot.kind === 'base_unificada') {
+    const baseOut = snapshot.output as BaseCalculoUnificadaOutput;
+    return (
+      <div className="stack">
+        <article className="card">
+          <div className="card__header">
+            <div>
+              <h3 className="card__title">Base de Cálculo Unificada</h3>
+              <span className="card__meta tabular-nums">
+                Snapshot <code>{snapshot.id}</code> &bull; Fato gerador: {snapshot.dhFatoGerador} &bull;{' '}
+                {snapshot.engineMode === 'remote-official' ? 'Oficial RFB' : 'Motor Local (TS)'}
+              </span>
+            </div>
+
+            <div className="staging-header-actions">
+              <a
+                href={getExportXlsxUrl(snapshot.id)}
+                download
+                className="btn btn--sm"
+              >
+                <FileSpreadsheet size={14} aria-hidden="true" />
+                <span>Exportar Planilha Auditável (.xlsx)</span>
+              </a>
+              <a
+                href={getExportJsonUrl(snapshot.id)}
+                download
+                className="btn btn--sm"
+              >
+                <Download size={14} aria-hidden="true" />
+                <span>Exportar JSON</span>
+              </a>
+            </div>
+          </div>
+
+          <div className="kpi-grid">
+            <article className="kpi-card">
+              <span className="kpi-card__label">Base Regime Regular</span>
+              <span className="kpi-value tabular-nums">{baseOut.baseRG}</span>
+              <span className="kpi-card__hint">Base CBS / IBS</span>
+            </article>
+            <article className="kpi-card">
+              <span className="kpi-card__label">Base Imposto Seletivo</span>
+              <span className="kpi-value tabular-nums">{baseOut.baseIS}</span>
+              <span className="kpi-card__hint">Base IS</span>
+            </article>
+            <article className="kpi-card">
+              <span className="kpi-card__label">Base Simples Nacional</span>
+              <span className="kpi-value tabular-nums">{baseOut.baseSN}</span>
+              <span className="kpi-card__hint">Base RBT / Simples</span>
+            </article>
+          </div>
+
+          {baseOut.avisos && baseOut.avisos.length > 0 && (
+            <div className="banner banner--info" role="status">
+              <span>{baseOut.avisos.join(' • ')}</span>
+            </div>
+          )}
+        </article>
+      </div>
     );
   }
 
