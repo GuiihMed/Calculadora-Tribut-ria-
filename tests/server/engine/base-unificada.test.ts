@@ -117,7 +117,26 @@ describe('Base de Cálculo Unificada Engine (NF-e/NFC-e & NFS-e)', () => {
       expect(nfeServico.baseSN).toBe('1000.00');
     });
 
-    it('rejects unsupported tipoDocumento outside 55/65', () => {
+    it('keeps permanent NF-e elements active in 2034+ while ignoring transitional taxes', () => {
+      const result2034 = calculateBaseUnificadaNfe({
+        anoFatoGerador: 2034,
+        tipoDocumento: 55,
+        natureza: 'bem',
+        vProd: 1000,
+        vFrete: 50,
+        vIS: 30,
+        vDesc: 20,
+        vICMS: 180,
+      });
+
+      expect(result2034.baseRG).toBe('1060.00');
+      expect(result2034.baseIS).toBe('1030.00');
+      expect(result2034.baseSN).toBe('1060.00');
+      expect(result2034.avisos).toHaveLength(1);
+      expect(result2034.avisos[0]).toContain('vICMS');
+    });
+
+    it('rejects unsupported tipoDocumento outside 55/65 and invalid numeric strings', () => {
       expect(() =>
         calculateBaseUnificadaNfe({
           anoFatoGerador: 2027,
@@ -126,6 +145,15 @@ describe('Base de Cálculo Unificada Engine (NF-e/NFC-e & NFS-e)', () => {
           vProd: 1000,
         }),
       ).toThrow(/55.*65/);
+
+      expect(() =>
+        calculateBaseUnificadaNfe({
+          anoFatoGerador: 2027,
+          tipoDocumento: 55,
+          natureza: 'bem',
+          vProd: 'abc' as unknown as number,
+        }),
+      ).toThrow(/Valor decimal inválido/);
     });
   });
 

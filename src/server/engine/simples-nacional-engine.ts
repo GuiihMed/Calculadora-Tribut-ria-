@@ -188,9 +188,7 @@ export class SimplesNacionalEngine {
     const avisosGlobais: string[] = [];
 
     const safeTpDoc = typeof operacao?.tpDoc === 'number' ? operacao.tpDoc : 0;
-    const safeCrt = (
-      operacao?.CRT === 1 || operacao?.CRT === 2 || operacao?.CRT === 3 ? operacao.CRT : 1
-    ) as 1 | 2 | 3;
+    const safeCrt = typeof operacao?.CRT === 'number' ? operacao.CRT : 0;
 
     const emptyErrorOutput = (): ObservabilidadeSimplesOutput => ({
       dhFatoGerador: operacao?.dhFatoGerador ?? '',
@@ -306,8 +304,7 @@ export class SimplesNacionalEngine {
           ).error,
         );
         hasScopeRejection = true;
-      }
-      if (rawTpRegime === 1) {
+      } else if (rawTpRegime === 1) {
         errosGlobais.push(
           makeVsnError(
             'VSN-019',
@@ -316,8 +313,7 @@ export class SimplesNacionalEngine {
           ).error,
         );
         hasScopeRejection = true;
-      }
-      if (rawCrt === 3 && !tpRegimeInformado) {
+      } else if (rawCrt === 3 && !tpRegimeInformado) {
         errosGlobais.push(
           makeVsnError(
             'VSN-019',
@@ -737,11 +733,12 @@ export class SimplesNacionalEngine {
 
     const memoriaCalculo: MemoriaCalculoTributo[] = [];
     if (regime.geraIbs) {
+      const pIbsNominal = pIbsParsed.value !== null ? formatRate(pIbsParsed.value) : '0.00';
       const pIbsFormatted = pIbsEff !== null ? formatRate(pIbsEff) : '0.00';
       memoriaCalculo.push({
         tributo: 'IBSSN',
         baseCalculo: formatCurrency(vBC),
-        aliquotaNominal: pIbsFormatted,
+        aliquotaNominal: pIbsNominal,
         aliquotaEfetiva: pIbsFormatted,
         valorCalculado: formatCurrency(valorIbs),
         valorDevido: formatCurrency(ibs!.devido),
@@ -749,11 +746,12 @@ export class SimplesNacionalEngine {
         memoriaTexto: `IBSSN = ${formatCurrency(vBC)} × ${pIbsFormatted}% = ${formatCurrency(valorIbs)} (devido: ${formatCurrency(ibs!.devido)}, pendente/suspenso: ${formatCurrency(ibs!.pendenteSuspenso)})`,
       });
     }
+    const pCbsNominal = pCbsParsed.value !== null ? formatRate(pCbsParsed.value) : '0.00';
     const pCbsFormatted = pCbsEff !== null ? formatRate(pCbsEff) : '0.00';
     memoriaCalculo.push({
       tributo: 'CBSSN',
       baseCalculo: formatCurrency(vBC),
-      aliquotaNominal: pCbsFormatted,
+      aliquotaNominal: pCbsNominal,
       aliquotaEfetiva: pCbsFormatted,
       valorCalculado: formatCurrency(valorCbs),
       valorDevido: formatCurrency(cbs.devido),

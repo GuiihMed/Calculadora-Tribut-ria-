@@ -321,7 +321,7 @@ export interface ObservabilidadeSimplesItemOutput {
 export interface ObservabilidadeSimplesOutput {
   dhFatoGerador: string;
   tpDoc: number;
-  CRT: 1 | 2 | 3;
+  CRT: number;
   tpRegimeIBSCBS?: 1 | 2 | null;
   tpEnteGov?: 1 | 2 | 3 | 4 | null;
   errosGlobais: FiscalErrorItem[];

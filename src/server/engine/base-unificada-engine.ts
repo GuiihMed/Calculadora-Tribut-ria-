@@ -25,7 +25,7 @@ interface ElementoSpec {
   bases: ReadonlySet<BaseKind>;
   natureza: NaturezaKind | null;
   anoInicio: number;
-  anoFim: number;
+  anoFim: number | null;
   modelos: ReadonlySet<number>;
 }
 
@@ -37,7 +37,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS', 'SN']),
     natureza: null,
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -47,7 +47,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS', 'SN']),
     natureza: 'servico',
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -57,7 +57,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS', 'SN']),
     natureza: null,
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -67,7 +67,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS', 'SN']),
     natureza: null,
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -77,7 +77,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS', 'SN']),
     natureza: null,
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -87,7 +87,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS']),
     natureza: 'bem',
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55]),
   },
   {
@@ -97,7 +97,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'SN']),
     natureza: null,
     anoInicio: 2027,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -107,7 +107,7 @@ const ELEMENTOS_NFE: readonly ElementoSpec[] = [
     bases: new Set<BaseKind>(['RG', 'IS', 'SN']),
     natureza: null,
     anoInicio: 2026,
-    anoFim: 2033,
+    anoFim: null,
     modelos: new Set([55, 65]),
   },
   {
@@ -175,11 +175,17 @@ function toDecimalOrZero(value: DecimalInput | undefined): Decimal {
     }
     return new FiscalDecimal(value);
   }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return new FiscalDecimal(0);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return new FiscalDecimal(0);
+    }
+    if (!/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      throw new RangeError(`Valor decimal inválido para componente da base de cálculo: '${value}'.`);
+    }
+    return new FiscalDecimal(trimmed);
   }
-  return new FiscalDecimal(trimmed);
+  throw new RangeError('Tipo inválido para componente da base de cálculo.');
 }
 
 function getMotivoNaoComposicao(
@@ -188,8 +194,10 @@ function getMotivoNaoComposicao(
   natureza: NaturezaKind,
   tipoDocumento: number,
 ): string | null {
-  if (ano < spec.anoInicio || ano > spec.anoFim) {
-    return `Campo ${spec.tag} não compõe as bases para o ano ${ano} (vigência ${spec.anoInicio}–${spec.anoFim}) e foi ignorado no cálculo`;
+  if (ano < spec.anoInicio || (spec.anoFim !== null && ano > spec.anoFim)) {
+    const vigenciaLabel =
+      spec.anoFim !== null ? `${spec.anoInicio}–${spec.anoFim}` : `${spec.anoInicio}+`;
+    return `Campo ${spec.tag} não compõe as bases para o ano ${ano} (vigência ${vigenciaLabel}) e foi ignorado no cálculo`;
   }
   if (spec.natureza !== null && spec.natureza !== natureza) {
     return `Campo ${spec.tag} não compõe as bases para a natureza ${natureza} (aplicável apenas a ${spec.natureza}) e foi ignorado no cálculo`;

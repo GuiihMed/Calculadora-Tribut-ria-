@@ -170,6 +170,12 @@ describe('Simples Nacional Engine (NT 2026.005 v1.00) & Fator R', () => {
     expect(itemUniao.vIBSSN).toBe('0.00');
     expect(itemUniao.pCBSSN).toBe('4.00');
     expect(itemUniao.vCBSSN).toBe('40.00');
+    const memIbs = itemUniao.memoriaCalculo.find((m) => m.tributo === 'IBSSN');
+    const memCbs = itemUniao.memoriaCalculo.find((m) => m.tributo === 'CBSSN');
+    expect(memIbs?.aliquotaNominal).toBe('1.25');
+    expect(memIbs?.aliquotaEfetiva).toBe('0.00');
+    expect(memCbs?.aliquotaNominal).toBe('2.75');
+    expect(memCbs?.aliquotaEfetiva).toBe('4.00');
 
     const estado2027 = engine.calculate({
       dhFatoGerador: '2027-03-10',
@@ -252,6 +258,26 @@ describe('Simples Nacional Engine (NT 2026.005 v1.00) & Fator R', () => {
     });
     expect(outOfScope.errosGlobais.some((e) => e.code === 'VSN-019')).toBe(true);
     expect(outOfScope.itens).toHaveLength(0);
+
+    const meiComTpRegime = engine.calculate({
+      dhFatoGerador: '2027-03-10',
+      tpDoc: 55,
+      CRT: 4 as unknown as 1,
+      tpRegimeIBSCBS: 1,
+      itens: [
+        {
+          nObj: 1,
+          cAtivSN: '01',
+          cClassTrib: '000001',
+          baseCalculo: 1000,
+          pIBSSN: 0.5,
+          pCBSSN: 1.2,
+        },
+      ],
+    });
+    expect(meiComTpRegime.CRT).toBe(4);
+    expect(meiComTpRegime.errosGlobais.some((e) => e.code === 'VSN-018')).toBe(true);
+    expect(meiComTpRegime.errosGlobais.filter((e) => e.code === 'VSN-019')).toHaveLength(1);
   });
 
   it('returns VSN-023 for cAtivSN=90 with tpRBSN=1 and NAO_IMPLEMENTADO (VSN-027) for TRTR_IN_POSSUI_AJUSTE=1', () => {
