@@ -1,0 +1,375 @@
+{
+  "source": "ReceitaFederal/calculadora-rtc-regime-regular/flyway/sql",
+  "license": "MIT",
+  "totalSqlFiles": 61,
+  "executionOrder": [
+    "criacao/beforeMigrate.sql",
+    "criacao/B0001__sistema_tributario_completo.sql",
+    "manutencao/V0002__update_tratamento_tributario_campo_ajuste.sql",
+    "manutencao/V0003__municipio_exterior.sql",
+    "manutencao/V0004__ncm_aplicavel_imposto_seletivo.sql",
+    "manutencao/V0005__nbs_aplicavel_imposto_seletivo.sql",
+    "manutencao/V0006__vigencia_retroativa.sql",
+    "manutencao/V0007__manutencao.sql",
+    "manutencao/V0008__correcao_fk_nbs_aplicavel.sql",
+    "manutencao/V0009__aliquota_uniforme_setorial.sql",
+    "manutencao/V0010__estrutura_carga_tabelas_dfe.sql",
+    "manutencao/V0011__nova_tabela_cclasstrib_portal_03_10_2025.sql",
+    "manutencao/V0012__tratamento_tributario_monofasia.sql",
+    "manutencao/V0013__nova_tabela_cclasstrib_portal_19_ou_24_11_2025.sql",
+    "manutencao/V0014__desativacao_monofasia_correcao_nomenclatura_200020.sql",
+    "manutencao/V0015__exclusao_aliquotas_padrao_ficticias.sql",
+    "manutencao/V0016__ajuste_colunas_sem_tipo_definido_na_criacao.sql",
+    "manutencao/V0017__nova_tabela_cclasstrib_portal_12_ou_15_12_2025.sql",
+    "manutencao/V0018__aliquotas_fixas_ligadas_a_cclasstrib.sql",
+    "manutencao/V0019__estrutura_carga_tabelas_redutor_transferencia.sql",
+    "manutencao/V0020__estrutura_carga_tabelas_IndOP_IBSCBS_LC116_CLASSIF_NBS_INDOP_LC.sql",
+    "manutencao/V0021__criacao_indices.sql",
+    "manutencao/V0022__ajustes_campos_booleanos.sql",
+    "manutencao/V0023__inclusao_redutor_compra_gov_2026.sql",
+    "manutencao/V0024__atualizacao_cindop.sql",
+    "manutencao/V0025__ajustes_classif_nbs_indop_lc.sql",
+    "manutencao/V0026__inclusao_cltr_data_atualizacao.sql",
+    "manutencao/V0027__nova_tabela_cclasstrib_parte_1_inclusao_novas_cclasstribs.sql",
+    "manutencao/V0028__nova_tabela_cclasstrib_parte_2_atualizacao_cclasstribs_existentes.sql",
+    "manutencao/V0029__nova_tabela_cclasstrib_parte_3_atualizacao_cclasstribs_existentes.sql",
+    "manutencao/V0030__atualizacao_cindop_para_pk_fk_ck.sql",
+    "manutencao/V0031__atualizacoes_tratamento_tributario.sql",
+    "manutencao/V0032__nova_tabela_cclasstrib_15_04_2026.sql",
+    "manutencao/V0033__ajustes_tabela_cclasstrib_15_04_2026.sql",
+    "manutencao/V0034__correcao_duplicata_classif_nbs_indop_lc_125041100.sql",
+    "manutencao/V0035__inclusao_novos_cclasstrib.sql",
+    "manutencao/V0036__atualizacoes_tabela_cclasstrib_23_06_2026.sql",
+    "manutencao/V0037__inclusao_aliquotas_fixas_mais_ajustes_excecao_ncm_aplicavel.sql",
+    "manutencao/V0038__deleta_registros_ncm_nbs_aplicavel.sql",
+    "manutencao/V0039__inserir_extinguir_ncm.sql",
+    "manutencao/V0040__atualizacao_lista_servicos_lc116.sql",
+    "manutencao/V0041__adiciona_local_ocorrencia_anexo_vii.sql",
+    "manutencao/V0042__atualizacao_anexo_viii_nfse.sql",
+    "manutencao/V0043__ajustes_vigencia_cindop.sql",
+    "manutencao/V0044__grupo_dfe.sql",
+    "manutencao/V0045__criacao_tabelas_ator.sql",
+    "manutencao/V0046__carga_final_atores.sql",
+    "manutencao/V0047__tipo_receita_bruta_sn.sql",
+    "manutencao/V0048__tipo_dfe_classificacao_dir_duimp.sql",
+    "manutencao/V0049__catalogo_oficial_atividades_simples_nacional.sql",
+    "manutencao/V0050__parametrizacao_calculo_simples_nacional.sql",
+    "manutencao/V0051__vinculo_atividades_cte_bpe_nfcom_simples_nacional.sql",
+    "manutencao/V0052__exclusao_cclasstrib.sql",
+    "manutencao/V0053__ajustes_aliquotas.sql",
+    "manutencao/V0054__ajustes_vigencia_cindop.sql",
+    "manutencao/V0055__desabilitacao_8xx.sql",
+    "manutencao/V0056__novas_aliquotas.sql",
+    "manutencao/V0057__remocao_aliquotas_monofasia.sql",
+    "manutencao/V0058__ajustes_vigencia_cindop.sql",
+    "manutencao/V0059__habilitacao_820.sql",
+    "criacao/afterMigrate.sql"
+  ],
+  "files": [
+    {
+      "path": "criacao/beforeMigrate.sql",
+      "bytes": 1801,
+      "sha256": "6864a69b1f087e7e3a9f185d92c6b3e1ca924d7d9f51c433aeed370a14c6a251"
+    },
+    {
+      "path": "criacao/B0001__sistema_tributario_completo.sql",
+      "bytes": 2256876,
+      "sha256": "9582bbd4a08b2c61039ef077f851061ca3e99b98c1fcd2b6f9878ffd760ca739"
+    },
+    {
+      "path": "manutencao/V0002__update_tratamento_tributario_campo_ajuste.sql",
+      "bytes": 1230,
+      "sha256": "bd3e2db63fe9140b9fea0de545cc918d8c8a349c102a83cbd830575f8bba8088"
+    },
+    {
+      "path": "manutencao/V0003__municipio_exterior.sql",
+      "bytes": 1217,
+      "sha256": "1487a038a2384a520323ba24a89e579f1cf6d3b54173fdbe2ba997cf25365e08"
+    },
+    {
+      "path": "manutencao/V0004__ncm_aplicavel_imposto_seletivo.sql",
+      "bytes": 36172,
+      "sha256": "75471d2dbe3bade5e7b49c1f66dcfb3d2f45cbe191b51b23025f18961b702524"
+    },
+    {
+      "path": "manutencao/V0005__nbs_aplicavel_imposto_seletivo.sql",
+      "bytes": 1542,
+      "sha256": "10e08c8fef947e0d4b1e430b4d8689a86a010a2875708a6d3d50494f109d9120"
+    },
+    {
+      "path": "manutencao/V0006__vigencia_retroativa.sql",
+      "bytes": 5007,
+      "sha256": "e49b602771a50ea9d1c807ce3a3b8afeb23b9d2d490ba9bff09ae9f4badd4ea8"
+    },
+    {
+      "path": "manutencao/V0007__manutencao.sql",
+      "bytes": 5491,
+      "sha256": "b864ea8375cae65d5438be7d566bde7626bb4e68aca24ea3e68bdb5f8ee03162"
+    },
+    {
+      "path": "manutencao/V0008__correcao_fk_nbs_aplicavel.sql",
+      "bytes": 1227,
+      "sha256": "213beee8e32927a578c711cd65dce8d2c83c412e2d1855adbb04702008c9b441"
+    },
+    {
+      "path": "manutencao/V0009__aliquota_uniforme_setorial.sql",
+      "bytes": 4372,
+      "sha256": "ade045efd54e1f7199cbf32d8ed828017fd80c884916dd1398e4c520fd789c86"
+    },
+    {
+      "path": "manutencao/V0010__estrutura_carga_tabelas_dfe.sql",
+      "bytes": 43249,
+      "sha256": "2256f4e92fc06c3569a6831c67caa79579269f8a75aa86169dd9a8799655bb93"
+    },
+    {
+      "path": "manutencao/V0011__nova_tabela_cclasstrib_portal_03_10_2025.sql",
+      "bytes": 304226,
+      "sha256": "9313cbff0b4ec35688a6a0cc99d7db235e4d2caa1e42f9439025f49f480df740"
+    },
+    {
+      "path": "manutencao/V0012__tratamento_tributario_monofasia.sql",
+      "bytes": 3212,
+      "sha256": "5ec5e92bd9bf24adfdd6abd426d69e51982d5867b3fa7f28c4e066de6768b5bf"
+    },
+    {
+      "path": "manutencao/V0013__nova_tabela_cclasstrib_portal_19_ou_24_11_2025.sql",
+      "bytes": 24544,
+      "sha256": "a5019ddeadb58e833d03acb079d3058f50e32a9713c1da3646e34389e93eb91e"
+    },
+    {
+      "path": "manutencao/V0014__desativacao_monofasia_correcao_nomenclatura_200020.sql",
+      "bytes": 1491,
+      "sha256": "56fad174865ca52d0b2855a44f391ea488a7f940885fe5322ff6b127ed040e24"
+    },
+    {
+      "path": "manutencao/V0015__exclusao_aliquotas_padrao_ficticias.sql",
+      "bytes": 943,
+      "sha256": "a0d941dc6054ebd408dfbb96bc6a810ca445f6ff502f83af3601733fad450ba1"
+    },
+    {
+      "path": "manutencao/V0016__ajuste_colunas_sem_tipo_definido_na_criacao.sql",
+      "bytes": 9302,
+      "sha256": "e1ebefa49c1536beab0ba5eb0530564ac3d9a54a3ec9aca6b7a55f7e8dd56925"
+    },
+    {
+      "path": "manutencao/V0017__nova_tabela_cclasstrib_portal_12_ou_15_12_2025.sql",
+      "bytes": 3294,
+      "sha256": "eb3b83a517a895eae92c09d03322ca92b4b520e5becb8b4c9184f5f89eda61df"
+    },
+    {
+      "path": "manutencao/V0018__aliquotas_fixas_ligadas_a_cclasstrib.sql",
+      "bytes": 3500,
+      "sha256": "75b98d4c10fd7c08c2ebf9b5438d26454afa81aec377c4c26868284fe514b043"
+    },
+    {
+      "path": "manutencao/V0019__estrutura_carga_tabelas_redutor_transferencia.sql",
+      "bytes": 3491,
+      "sha256": "246971fd7cce2dae121ba1b8bc939dea1b016bfa83f2e3562c901571c56c82de"
+    },
+    {
+      "path": "manutencao/V0020__estrutura_carga_tabelas_IndOP_IBSCBS_LC116_CLASSIF_NBS_INDOP_LC.sql",
+      "bytes": 159730,
+      "sha256": "2d2e30c499e7d0565f2f54fea5ab95233e03a956addd8eba1adaa98bcf3ad861"
+    },
+    {
+      "path": "manutencao/V0021__criacao_indices.sql",
+      "bytes": 2951,
+      "sha256": "56317e755dc523f849cea92509718754753e8a275a22efd2e1c74ef738bc3d2a"
+    },
+    {
+      "path": "manutencao/V0022__ajustes_campos_booleanos.sql",
+      "bytes": 1504,
+      "sha256": "507c854536006c0d699daf3b6989e47baf3044ba22de900ba2178b2cd8507966"
+    },
+    {
+      "path": "manutencao/V0023__inclusao_redutor_compra_gov_2026.sql",
+      "bytes": 1437,
+      "sha256": "af757e1e4033dd3372023390f69d82e0388353e5ed77b2528c4b80584abc52d4"
+    },
+    {
+      "path": "manutencao/V0024__atualizacao_cindop.sql",
+      "bytes": 6344,
+      "sha256": "282aa8c8198071b32c1d969dee13675cca288f5d564cd9e50aa5a4c894248eee"
+    },
+    {
+      "path": "manutencao/V0025__ajustes_classif_nbs_indop_lc.sql",
+      "bytes": 9906,
+      "sha256": "626d626020e1b9f7e8813ad18950bb6bcb6ce49d271edab453b208a6b2d01262"
+    },
+    {
+      "path": "manutencao/V0026__inclusao_cltr_data_atualizacao.sql",
+      "bytes": 2995,
+      "sha256": "f5158b2619742dea29c3a90ff027a15dce1bd85d04acc073b9514a0106e20cac"
+    },
+    {
+      "path": "manutencao/V0027__nova_tabela_cclasstrib_parte_1_inclusao_novas_cclasstribs.sql",
+      "bytes": 29609,
+      "sha256": "b435b0324779982b58aee949614e2415f93082791a73167dc57627b8090525e1"
+    },
+    {
+      "path": "manutencao/V0028__nova_tabela_cclasstrib_parte_2_atualizacao_cclasstribs_existentes.sql",
+      "bytes": 14636,
+      "sha256": "683eb351ce023bdbe9c62a7a920c05ae9b214b7e67b7a5c50a637fa0c506059a"
+    },
+    {
+      "path": "manutencao/V0029__nova_tabela_cclasstrib_parte_3_atualizacao_cclasstribs_existentes.sql",
+      "bytes": 885,
+      "sha256": "94a1be8ece60e790299cd617748d1722f4263f8e06380ba929f9f0fa6ba7f381"
+    },
+    {
+      "path": "manutencao/V0030__atualizacao_cindop_para_pk_fk_ck.sql",
+      "bytes": 7521,
+      "sha256": "e99d688df930a976157f9f6de113873296d8915df474388d351799ec3eda3456"
+    },
+    {
+      "path": "manutencao/V0031__atualizacoes_tratamento_tributario.sql",
+      "bytes": 1140,
+      "sha256": "0b05bc2a13401e7972437bb8923a7ff9e3af8c7d5be6fe8072482fdd7b45cb28"
+    },
+    {
+      "path": "manutencao/V0032__nova_tabela_cclasstrib_15_04_2026.sql",
+      "bytes": 10714,
+      "sha256": "b6dd9f532754fbd39ab59f5c548d448ad53662229b42c0422ffa8f35d4e4764f"
+    },
+    {
+      "path": "manutencao/V0033__ajustes_tabela_cclasstrib_15_04_2026.sql",
+      "bytes": 1387,
+      "sha256": "ba21e8096c8135716e12d6d16803796bb81fcce7fba04fc92679bff592922bf2"
+    },
+    {
+      "path": "manutencao/V0034__correcao_duplicata_classif_nbs_indop_lc_125041100.sql",
+      "bytes": 1330,
+      "sha256": "61efb09b68474ec4fd7e099f71445e84904bb1bbf96faa545fd8ea43d64eaf62"
+    },
+    {
+      "path": "manutencao/V0035__inclusao_novos_cclasstrib.sql",
+      "bytes": 26072,
+      "sha256": "685abc4a736256d374af8eea510b7e3257141d226898529b1ee4cbd382e838af"
+    },
+    {
+      "path": "manutencao/V0036__atualizacoes_tabela_cclasstrib_23_06_2026.sql",
+      "bytes": 5102,
+      "sha256": "89ea011bb30174806bb0c10751fb868fc15d1038047ea4836ae0c632ce402bab"
+    },
+    {
+      "path": "manutencao/V0037__inclusao_aliquotas_fixas_mais_ajustes_excecao_ncm_aplicavel.sql",
+      "bytes": 2246,
+      "sha256": "e505343811c036b3dc38657140b478e4e4216f5fa919182d459fe511bd113142"
+    },
+    {
+      "path": "manutencao/V0038__deleta_registros_ncm_nbs_aplicavel.sql",
+      "bytes": 36602,
+      "sha256": "1677ae882c3e08a6a63a951527e8aa4b25fd6752e760f79e1b568dec63c3e2e0"
+    },
+    {
+      "path": "manutencao/V0039__inserir_extinguir_ncm.sql",
+      "bytes": 5097,
+      "sha256": "968ac34c80266bb233e7b8ca3ed805f303eed44c3deac2cf3d334b03517fbf37"
+    },
+    {
+      "path": "manutencao/V0040__atualizacao_lista_servicos_lc116.sql",
+      "bytes": 2009,
+      "sha256": "49955d624d0575c68171521a899bbdbed1d67e1f58e594cd0e7d27f3114c9e9c"
+    },
+    {
+      "path": "manutencao/V0041__adiciona_local_ocorrencia_anexo_vii.sql",
+      "bytes": 23923,
+      "sha256": "1653cbb4ae13b88fd3fa77f82e8c832b9e0928fdfae8d1109233d3092fa468e2"
+    },
+    {
+      "path": "manutencao/V0042__atualizacao_anexo_viii_nfse.sql",
+      "bytes": 818450,
+      "sha256": "39cc9d24c2cb63d29bd419856ca32f0f19438d2182d971050435e0671cb8ec45"
+    },
+    {
+      "path": "manutencao/V0043__ajustes_vigencia_cindop.sql",
+      "bytes": 1514,
+      "sha256": "b6743f7fd14277618fe5cdc3702af5b15842d2d2f5bf7839cf69ccc4bb7f0b00"
+    },
+    {
+      "path": "manutencao/V0044__grupo_dfe.sql",
+      "bytes": 7898,
+      "sha256": "32bfe3a1f8763eef8c5514b4c3aa9c0edfcda0a4d371eeba4a609dc61c2a8249"
+    },
+    {
+      "path": "manutencao/V0045__criacao_tabelas_ator.sql",
+      "bytes": 3318,
+      "sha256": "adbe24169dfad80d70f42164be48958a7c87d7e3ddfbf51830bb0b33d1c6abe9"
+    },
+    {
+      "path": "manutencao/V0046__carga_final_atores.sql",
+      "bytes": 52591,
+      "sha256": "6817e5779ebcfb088a45f5636e526f9251c7987b7d8cc4ec1760031f89424d45"
+    },
+    {
+      "path": "manutencao/V0047__tipo_receita_bruta_sn.sql",
+      "bytes": 6735,
+      "sha256": "f645ffd682ee33d2259b798eb717f5aa1d6f1f597ed6d9a8bb4fcf2c61d9a739"
+    },
+    {
+      "path": "manutencao/V0048__tipo_dfe_classificacao_dir_duimp.sql",
+      "bytes": 6112,
+      "sha256": "8ce637ee021d8e5e403f76ec4fd5cedc635ee72f93e0205234f0e313e6984fe0"
+    },
+    {
+      "path": "manutencao/V0049__catalogo_oficial_atividades_simples_nacional.sql",
+      "bytes": 7281,
+      "sha256": "aab95cfe30b5b9f8ebf0b6dea74547de756b4d9a2ce098e92202fdf309a9e893"
+    },
+    {
+      "path": "manutencao/V0050__parametrizacao_calculo_simples_nacional.sql",
+      "bytes": 23886,
+      "sha256": "ecc6d0c893d1db637d3c6f9f78cec0124e63d7005b14ebf59698c636009c2977"
+    },
+    {
+      "path": "manutencao/V0051__vinculo_atividades_cte_bpe_nfcom_simples_nacional.sql",
+      "bytes": 7324,
+      "sha256": "7b24c9de830fc9f362452f43037385ab34473e290a53805faad15fc45da1ef39"
+    },
+    {
+      "path": "manutencao/V0052__exclusao_cclasstrib.sql",
+      "bytes": 1272,
+      "sha256": "cb5d8d3538d2294052086a8694b74d81c50e022bd7e71d6bb63f082ee4decc73"
+    },
+    {
+      "path": "manutencao/V0053__ajustes_aliquotas.sql",
+      "bytes": 4445,
+      "sha256": "6f5171177a965b1595c09bda0160a4347fb173865b61eecb055f14732a0f53d5"
+    },
+    {
+      "path": "manutencao/V0054__ajustes_vigencia_cindop.sql",
+      "bytes": 1514,
+      "sha256": "f4fba790908e4eb6a4342f8980e34d93765c5375edb296f14c336d288acf7093"
+    },
+    {
+      "path": "manutencao/V0055__desabilitacao_8xx.sql",
+      "bytes": 1280,
+      "sha256": "70976e8dcc199877fe6c877c32042f43ba372d2b386efa372a8708cfde5b67d8"
+    },
+    {
+      "path": "manutencao/V0056__novas_aliquotas.sql",
+      "bytes": 5550,
+      "sha256": "9ea3afc11d31e79625e6f6e011aa6e20e604ea4192db3016659d6e925daeec0d"
+    },
+    {
+      "path": "manutencao/V0057__remocao_aliquotas_monofasia.sql",
+      "bytes": 1524,
+      "sha256": "eb785773c7b2275aa21455814523bc48799d11a1c8e38d7cb86b29758f3e4d7e"
+    },
+    {
+      "path": "manutencao/V0058__ajustes_vigencia_cindop.sql",
+      "bytes": 1515,
+      "sha256": "62f2f1da213650c856c3efaf49d6131f5220ba9f6049dc5252a4eb57a802d7ca"
+    },
+    {
+      "path": "manutencao/V0059__habilitacao_820.sql",
+      "bytes": 856,
+      "sha256": "a85294971a521939cff5ed60ae5ccb5d4dc28100804b26e92d2a63ffc16c82f3"
+    },
+    {
+      "path": "criacao/afterMigrate.sql",
+      "bytes": 9844,
+      "sha256": "ff04412202b5b28a68211c4ee97d89d03d53040342eb53419ec30eae217e0ada"
+    }
+  ]
+}
