@@ -1045,7 +1045,7 @@ export class RegimeRegularEngine {
           'baseCalculo',
         );
       }
-      const bc = parseDecimalValue(item.baseCalculo, 'baseCalculo');
+      const bc = parseDecimalValue(item.baseCalculo!, 'baseCalculo');
       if (bc.lt(0)) {
         throw new EngineValidationError(
           'VAL-013',
@@ -1098,7 +1098,7 @@ export class RegimeRegularEngine {
       };
     }
 
-    const bcItem = parseDecimalValue(item.baseCalculo, 'baseCalculo');
+    const bcItem = parseDecimalValue(item.baseCalculo!, 'baseCalculo');
     if (bcItem.lt(0)) {
       throw new EngineValidationError(
         'VAL-013',
