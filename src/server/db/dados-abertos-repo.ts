@@ -155,7 +155,6 @@ interface NomenclatureSpec {
   cltrCol: string;
   startCol: string;
   endCol: string;
-  excIdCol: string;
   excFkCol: string;
   excCodeCol: string;
   excStartCol: string;
@@ -172,7 +171,6 @@ const NOMENCLATURE_SPECS: Record<'ncm' | 'nbs', NomenclatureSpec> = {
     cltrCol: 'NCMA_CLTR_ID',
     startCol: 'NCMA_INICIO_VIGENCIA',
     endCol: 'NCMA_FIM_VIGENCIA',
-    excIdCol: 'ENCM_ID',
     excFkCol: 'ENCM_NCMA_ID',
     excCodeCol: 'ENCM_NCM_CD',
     excStartCol: 'ENCM_INICIO_VIGENCIA',
@@ -187,7 +185,6 @@ const NOMENCLATURE_SPECS: Record<'ncm' | 'nbs', NomenclatureSpec> = {
     cltrCol: 'NBSA_CLTR_ID',
     startCol: 'NBSA_INICIO_VIGENCIA',
     endCol: 'NBSA_FIM_VIGENCIA',
-    excIdCol: 'ENBS_ID',
     excFkCol: 'ENBS_NBSA_ID',
     excCodeCol: 'ENBS_NBS_CD',
     excStartCol: 'ENBS_INICIO_VIGENCIA',
@@ -649,10 +646,12 @@ export class DadosAbertosRepository {
        WHERE n.${spec.codeCol} = SUBSTR(?, 1, LENGTH(n.${spec.codeCol}))
          AND e.${spec.excCodeCol} = SUBSTR(?, 1, LENGTH(e.${spec.excCodeCol}))
          AND n.${spec.cltrCol} = ?
+         AND n.${spec.startCol} <= ?
+         AND (n.${spec.endCol} IS NULL OR n.${spec.endCol} >= ?)
          AND e.${spec.excStartCol} <= ?
          AND (e.${spec.excEndCol} IS NULL OR e.${spec.excEndCol} >= ?)
        LIMIT 1`,
-      [digits, digits, cltrId, refDate, refDate],
+      [digits, digits, cltrId, refDate, refDate, refDate, refDate],
     );
     if (!matchesException) {
       return true;
@@ -661,17 +660,24 @@ export class DadosAbertosRepository {
     return this.hasActiveRow(
       `SELECT 1
        FROM ${spec.table} n
-       LEFT JOIN ${spec.excTable} e ON e.${spec.excFkCol} = n.${spec.idCol}
        WHERE n.${spec.codeCol} = SUBSTR(?, 1, LENGTH(n.${spec.codeCol}))
          AND n.${spec.cltrCol} = ?
          AND n.${spec.startCol} <= ?
          AND (n.${spec.endCol} IS NULL OR n.${spec.endCol} >= ?)
-         AND (
-           e.${spec.excIdCol} IS NULL
-           OR NOT (e.${spec.excStartCol} <= ? AND (e.${spec.excEndCol} IS NULL OR e.${spec.excEndCol} >= ?))
+         AND NOT EXISTS (
+           SELECT 1
+           FROM ${spec.table} n2
+           JOIN ${spec.excTable} e ON e.${spec.excFkCol} = n2.${spec.idCol}
+           WHERE n2.${spec.cltrCol} = n.${spec.cltrCol}
+             AND n2.${spec.codeCol} = n.${spec.codeCol}
+             AND n2.${spec.startCol} <= ?
+             AND (n2.${spec.endCol} IS NULL OR n2.${spec.endCol} >= ?)
+             AND e.${spec.excCodeCol} = SUBSTR(?, 1, LENGTH(e.${spec.excCodeCol}))
+             AND e.${spec.excStartCol} <= ?
+             AND (e.${spec.excEndCol} IS NULL OR e.${spec.excEndCol} >= ?)
          )
        LIMIT 1`,
-      [digits, cltrId, refDate, refDate, refDate, refDate],
+      [digits, cltrId, refDate, refDate, refDate, refDate, digits, refDate, refDate],
     );
   }
 
@@ -840,18 +846,26 @@ export class DadosAbertosRepository {
          FROM ALIQUOTA_REFERENCIA r
          LEFT JOIN ALIQUOTA_PADRAO p
            ON p.ALPA_ALRE_ID = r.ALRE_ID
-          AND ((? IS NULL AND p.ALPA_MUNI_CD IS NULL) OR (? IS NOT NULL AND p.ALPA_MUNI_CD = ?))
-          AND ((? IS NULL AND p.ALPA_UF_CD IS NULL) OR (? IS NOT NULL AND p.ALPA_UF_CD = ?))
+          AND (
+            (p.ALPA_MUNI_CD IS NOT NULL AND ? IS NOT NULL AND p.ALPA_MUNI_CD = ? AND (p.ALPA_UF_CD IS NULL OR p.ALPA_UF_CD = ?))
+            OR (p.ALPA_MUNI_CD IS NULL AND p.ALPA_UF_CD IS NOT NULL AND ? IS NOT NULL AND p.ALPA_UF_CD = ?)
+            OR (p.ALPA_MUNI_CD IS NULL AND p.ALPA_UF_CD IS NULL)
+          )
           AND p.ALPA_INICIO_VIGENCIA <= ?
           AND (p.ALPA_FIM_VIGENCIA IS NULL OR p.ALPA_FIM_VIGENCIA >= ?)
          WHERE r.ALRE_TBTO_ID = ?
            AND r.ALRE_INICIO_VIGENCIA <= ?
            AND (r.ALRE_FIM_VIGENCIA IS NULL OR r.ALRE_FIM_VIGENCIA >= ?)
-         ORDER BY r.ALRE_INICIO_VIGENCIA DESC, p.ALPA_INICIO_VIGENCIA DESC
+         ORDER BY r.ALRE_INICIO_VIGENCIA DESC,
+                  CASE
+                    WHEN p.ALPA_MUNI_CD IS NOT NULL THEN 0
+                    WHEN p.ALPA_UF_CD IS NOT NULL THEN 1
+                    ELSE 2
+                  END ASC,
+                  p.ALPA_INICIO_VIGENCIA DESC
          LIMIT 1`,
       )
       .get(
-        muniCd,
         muniCd,
         muniCd,
         ufCd,
