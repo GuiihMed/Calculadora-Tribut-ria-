@@ -267,6 +267,26 @@ export async function uploadFiles(
   });
 }
 
+interface RawSseErrorEvent {
+  type: 'error';
+  code?: string;
+  message?: string;
+  canForceLocal?: boolean;
+  capability?: EngineCapabilityKey;
+  endpoint?: string;
+}
+
+function toStreamApiError(parsed: RawSseErrorEvent): ApiError {
+  return new ApiError({
+    status: parsed.canForceLocal ? 503 : 500,
+    code: parsed.code ?? 'CHAT_STREAM_ERROR',
+    message: parsed.message ?? 'Falha ao processar turno no Copiloto Gemini.',
+    canForceLocal: Boolean(parsed.canForceLocal),
+    capability: parsed.capability,
+    endpoint: parsed.endpoint,
+  });
+}
+
 function dispatchSseBlock(block: string, onEvent: (ev: ChatStreamEvent) => void): void {
   const dataLines: string[] = [];
   for (const rawLine of block.split(/\r?\n/)) {
@@ -283,13 +303,9 @@ function dispatchSseBlock(block: string, onEvent: (ev: ChatStreamEvent) => void)
     return;
   }
 
-  const parsed = JSON.parse(rawJson) as ChatStreamEvent | { type: 'error'; message?: string };
+  const parsed = JSON.parse(rawJson) as ChatStreamEvent | RawSseErrorEvent;
   if (parsed.type === 'error') {
-    throw new ApiError({
-      status: 500,
-      code: 'CHAT_STREAM_ERROR',
-      message: parsed.message ?? 'Falha ao processar turno no Copiloto Gemini.',
-    });
+    throw toStreamApiError(parsed);
   }
   onEvent(parsed);
 }
@@ -332,6 +348,9 @@ export async function streamChatTurn(
 
     if (Array.isArray(json.events) && json.events.length > 0) {
       for (const ev of json.events) {
+        if ((ev as { type: string }).type === 'error') {
+          throw toStreamApiError(ev as unknown as RawSseErrorEvent);
+        }
         onEvent(ev);
       }
     } else if (json.turn) {

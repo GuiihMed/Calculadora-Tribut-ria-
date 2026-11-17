@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  Bot,
   Calculator,
   FileCode2,
   GitCompareArrows,
@@ -15,7 +14,6 @@ import type {
   EngineStatusMap,
   ExtractionDraft,
   OperationContext,
-  WorkspaceMessageRecord,
   WorkspaceSession,
 } from '../shared/types/fiscal';
 import {
@@ -26,10 +24,12 @@ import {
   listSessions,
   updateSessionContext,
 } from './api/client';
+import { ChatPane } from './components/ChatPane';
 import { HistoryDialog } from './components/HistoryDialog';
+import type { ChatMessageItem, WorkbenchTabId } from './components/MessageBubble';
 import { TopBar } from './components/TopBar';
 
-export type WorkbenchTab = 'staging' | 'results' | 'compare' | 'memory' | 'xml';
+export type WorkbenchTab = WorkbenchTabId;
 export type MobilePane = 'chat' | 'workbench';
 
 export const DEFAULT_OPERATION_CONTEXT: Partial<OperationContext> = {
@@ -66,8 +66,9 @@ export function App() {
   const [oficialDbReady, setOficialDbReady] = useState<boolean | null>(null);
   const [sessions, setSessions] = useState<WorkspaceSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<WorkspaceMessageRecord[]>([]);
+  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [sessionCalcRuns, setSessionCalcRuns] = useState<CalcRunSnapshot[]>([]);
+  const [draftsById, setDraftsById] = useState<Record<string, ExtractionDraft>>({});
   const [activeContext, setActiveContext] = useState<Partial<OperationContext>>(
     DEFAULT_OPERATION_CONTEXT,
   );
@@ -77,6 +78,11 @@ export function App() {
   const [mobilePane, setMobilePane] = useState<MobilePane>('chat');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const snapshotsById = useMemo(
+    () => Object.fromEntries(sessionCalcRuns.map((run) => [run.id, run])),
+    [sessionCalcRuns],
+  );
 
   const loadSessionById = useCallback(async (sessionId: string) => {
     try {
@@ -227,65 +233,45 @@ export function App() {
           aria-label="Copiloto Fiscal Gemini"
           className={`pane-chat ${mobilePane !== 'chat' ? 'pane-hidden-mobile' : ''}`}
         >
-          <div className="pane-header">
-            <h2 className="pane-header__title">
-              <Bot size={16} aria-hidden="true" style={{ verticalAlign: 'text-bottom', marginInlineEnd: '0.375rem' }} />
-              Copiloto Fiscal (Gemini)
-            </h2>
-            <span className="badge badge--info">
-              {activeSessionId ? `Sessão ativa` : 'Modo livre'}
-            </span>
-          </div>
-
-          <div className="pane-scroll">
-            {statusMessage && (
-              <div className="banner banner--danger" role="alert">
-                <span>{statusMessage}</span>
-              </div>
-            )}
-
-            <div className="stack">
-              {messages.length === 0 ? (
-                <article className="card">
-                  <div className="card__header">
-                    <h3 className="card__title">Pronto para analisar documentos e simular tributos</h3>
-                    <span className="badge badge--success">store: false</span>
-                  </div>
-                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                    Envie planilhas (<code>.xlsx</code>, <code>.csv</code>), DF-e em{' '}
-                    <code>.xml</code>, PDFs ou imagens, ou descreva a operação. Todos os números
-                    oficiais são calculados exclusivamente pelo motor determinístico sobre o SQLite
-                    da Receita Federal.
-                  </p>
-                </article>
-              ) : (
-                messages.map((msg) => (
-                  <article key={msg.id} className="card">
-                    <div className="card__header">
-                      <span className="card__title">
-                        {msg.role === 'user' ? 'Você' : 'Copiloto Fiscal'}
-                      </span>
-                      <span className="card__meta tabular-nums">
-                        {new Date(msg.createdAt).toLocaleTimeString('pt-BR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-                    <p style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
-                      {msg.content}
-                    </p>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="pane-footer">
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Compositor multimodal e histórico de ferramentas serão conectados na próxima etapa.
-            </div>
-          </div>
+          <ChatPane
+            sessionId={activeSessionId}
+            activeContext={activeContext}
+            messages={messages}
+            snapshotsById={snapshotsById}
+            draftsById={draftsById}
+            activeDraft={activeDraft}
+            statusMessage={statusMessage}
+            onMessagesChange={setMessages}
+            onSessionResolved={(resolvedId) => {
+              setActiveSessionId(resolvedId);
+              void listSessions()
+                .then((res) => setSessions(res.sessions))
+                .catch(() => {
+                  // non-fatal background refresh
+                });
+            }}
+            onSnapshotCreated={(snapshot) => {
+              setActiveSnapshot(snapshot);
+              setSessionCalcRuns((prev) => [
+                snapshot,
+                ...prev.filter((r) => r.id !== snapshot.id),
+              ]);
+            }}
+            onDraftReady={(draft) => {
+              setActiveDraft(draft);
+              setDraftsById((prev) => ({ ...prev, [draft.id]: draft }));
+            }}
+            onSelectSnapshot={(snapshot) => {
+              setActiveSnapshot(snapshot);
+            }}
+            onSelectDraft={(draft) => {
+              setActiveDraft(draft);
+            }}
+            onNavigateWorkbench={(tab) => {
+              setActiveWorkbenchTab(tab);
+              setMobilePane('workbench');
+            }}
+          />
         </section>
 
         {/* Right Pane: Mesa Fiscal Determinística */}
