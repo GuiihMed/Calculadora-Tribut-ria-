@@ -93,6 +93,23 @@ function uniqueStrings(values: Array<string | null | undefined>): string[] {
   return out;
 }
 
+const BRAZILIAN_NUMBER_CAPTURE =
+  '(-?\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|-?\\d+(?:[.,]\\d+)?)';
+
+function buildMetricPattern(labelPattern: string): RegExp {
+  return new RegExp(
+    `\\b(?:${labelPattern})\\b\\s*(?:=|:|foi\\s+de|é\\s+de|de)?\\s*(?:R\\$\\s*)?${BRAZILIAN_NUMBER_CAPTURE}`,
+    'gi',
+  );
+}
+
+function buildStrictMetricPattern(labelPattern: string): RegExp {
+  return new RegExp(
+    `\\b(?:${labelPattern})\\b(?![A-Za-z])\\s*(?:=|:|foi\\s+de|é\\s+de|de)?\\s*(?:R\\$\\s*)?${BRAZILIAN_NUMBER_CAPTURE}`,
+    'gi',
+  );
+}
+
 function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[] {
   const expectations: MetricExpectation[] = [];
 
@@ -114,14 +131,14 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
         {
           metric: 'totalCBS',
           totalOnly: true,
-          pattern: /\b(?:totalCBS|total\s+(?:de\s+)?CBS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+          pattern: buildMetricPattern('totalCBS|total\\s+(?:de\\s+)?CBS'),
           totalValues: totalCbs,
           allValues: totalCbs,
         },
         {
           metric: 'vCBS',
           totalOnly: false,
-          pattern: /\bvCBS\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+          pattern: buildMetricPattern('vCBS'),
           totalValues: totalCbs,
           allValues: uniqueStrings([...totalCbs, ...itemCbs]),
         },
@@ -133,14 +150,14 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
         {
           metric: 'totalIBS',
           totalOnly: true,
-          pattern: /\b(?:totalIBS|total\s+(?:de\s+)?IBS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+          pattern: buildMetricPattern('totalIBS|total\\s+(?:de\\s+)?IBS'),
           totalValues: totalIbs,
           allValues: totalIbs,
         },
         {
           metric: 'vIBS',
           totalOnly: false,
-          pattern: /\bvIBS\b(?![A-Za-z])\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+          pattern: buildStrictMetricPattern('vIBS'),
           totalValues: totalIbs,
           allValues: uniqueStrings([...totalIbs, ...itemIbs]),
         },
@@ -151,7 +168,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'vIBSUF',
         totalOnly: false,
-        pattern: /\bvIBSUF\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('vIBSUF'),
         totalValues: totalIbsUf,
         allValues: uniqueStrings([...totalIbsUf, ...itemIbsUf]),
       });
@@ -161,7 +178,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'vIBSMun',
         totalOnly: false,
-        pattern: /\bvIBSMun\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('vIBSMun'),
         totalValues: totalIbsMun,
         allValues: uniqueStrings([...totalIbsMun, ...itemIbsMun]),
       });
@@ -171,7 +188,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'vIS',
         totalOnly: false,
-        pattern: /\b(?:vIS|totalIS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('vIS|totalIS'),
         totalValues: totalIs,
         allValues: uniqueStrings([...totalIs, ...itemIs]),
       });
@@ -189,7 +206,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'vCBSSN',
         totalOnly: false,
-        pattern: /\b(?:vCBSSN|vCBS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('vCBSSN|vCBS'),
         totalValues: totalCbs,
         allValues: uniqueStrings([...totalCbs, ...itemCbs]),
       });
@@ -199,7 +216,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'vIBSSN',
         totalOnly: false,
-        pattern: /\b(?:vIBSSN|vIBS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('vIBSSN|vIBS'),
         totalValues: totalIbs,
         allValues: uniqueStrings([...totalIbs, ...itemIbs]),
       });
@@ -209,7 +226,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'totalGeral',
         totalOnly: true,
-        pattern: /\b(?:totalGeral|totalTributos|total\s+geral)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('totalGeral|totalTributos|total\\s+geral'),
         totalValues: totalGeral,
         allValues: uniqueStrings([...totalGeral, ...itemTotal]),
       });
@@ -226,7 +243,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'totalCBS',
         totalOnly: true,
-        pattern: /\b(?:totalCBS|vCBS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('totalCBS|vCBS'),
         totalValues: cbsVals,
         allValues: cbsVals,
       });
@@ -235,7 +252,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'totalIBS',
         totalOnly: true,
-        pattern: /\b(?:totalIBS|vIBS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('totalIBS|vIBS'),
         totalValues: ibsVals,
         allValues: ibsVals,
       });
@@ -244,7 +261,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'totalIS',
         totalOnly: true,
-        pattern: /\b(?:totalIS|vIS)\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('totalIS|vIS'),
         totalValues: isVals,
         allValues: isVals,
       });
@@ -253,7 +270,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'totalTributos',
         totalOnly: true,
-        pattern: /\btotalTributos\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('totalTributos'),
         totalValues: totalVals,
         allValues: totalVals,
       });
@@ -264,7 +281,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'baseRG',
         totalOnly: true,
-        pattern: /\bbaseRG\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('baseRG'),
         totalValues: [out.baseRG],
         allValues: [out.baseRG],
       });
@@ -273,7 +290,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'baseIS',
         totalOnly: true,
-        pattern: /\bbaseIS\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('baseIS'),
         totalValues: [out.baseIS],
         allValues: [out.baseIS],
       });
@@ -282,7 +299,7 @@ function buildMetricExpectations(snapshot: CalcRunSnapshot): MetricExpectation[]
       expectations.push({
         metric: 'baseSN',
         totalOnly: true,
-        pattern: /\bbaseSN\b\s*(?:=|:|foi\s+de|é\s+de|de)?\s*(?:R\$\s*)?(-?\d+(?:[.,]\d+)?)/gi,
+        pattern: buildMetricPattern('baseSN'),
         totalValues: [out.baseSN],
         allValues: [out.baseSN],
       });

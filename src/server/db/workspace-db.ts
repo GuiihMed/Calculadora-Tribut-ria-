@@ -208,9 +208,13 @@ export class WorkspaceStore {
       return null;
     }
 
+    const definedPatch = Object.fromEntries(
+      Object.entries(context).filter(([, value]) => value !== undefined),
+    ) as Partial<OperationContext>;
+
     const mergedContext: Partial<OperationContext> = {
       ...existing.activeContext,
-      ...context,
+      ...definedPatch,
     };
     const nextTitle = title !== undefined && title.trim() ? title.trim() : existing.title;
     const updatedAt = new Date().toISOString();

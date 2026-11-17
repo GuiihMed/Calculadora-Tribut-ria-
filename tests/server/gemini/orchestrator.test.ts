@@ -63,10 +63,11 @@ describe('WorkspaceStore, Tools Registry, Prompt Guard & Stateless GeminiOrchest
 
         const updated = store.updateSessionContext(
           session.id,
-          { municipio: 4314902 },
+          { uf: undefined, municipio: 4314902 },
           'Simulação Porto Alegre',
         );
         expect(updated?.title).toBe('Simulação Porto Alegre');
+        expect(updated?.activeContext.uf).toBe('RS');
         expect(updated?.activeContext.municipio).toBe(4314902);
         expect(store.listSessions().map((s) => s.id)).toContain(session.id);
 
@@ -220,6 +221,40 @@ describe('WorkspaceStore, Tools Registry, Prompt Guard & Stateless GeminiOrchest
         snapshot,
       );
       expect(good.grounded).toBe(true);
+
+      const largeSnapshot: CalcRunSnapshot = {
+        ...snapshot,
+        id: 'calc-ground-large',
+        output: {
+          modo: 'observabilidade',
+          dhFatoGerador: '2027-03-10',
+          xWarningDadosSimulados: false,
+          avisos: [],
+          errosGlobais: [],
+          itens: [],
+          IBSCBSTot: {
+            vBCIBSCBS: '14029.09',
+            gIBS: {
+              vIBS: '14.03',
+              gIBSUF: { vIBSUF: '7.01' },
+              gIBSMun: { vIBSMun: '7.02' },
+            },
+            gCBS: { vCBS: '1234.56' },
+          },
+        },
+      };
+
+      const brFormattedMatch = verifyNumericGrounding(
+        'O total apurado foi vCBS = R$ 1.234,56 e vIBS = R$ 14,03.',
+        largeSnapshot,
+      );
+      expect(brFormattedMatch.grounded).toBe(true);
+
+      const brFormattedMismatch = verifyNumericGrounding(
+        'O total apurado foi vCBS = R$ 1.234,00.',
+        largeSnapshot,
+      );
+      expect(brFormattedMismatch.grounded).toBe(false);
     });
   });
 
@@ -805,6 +840,107 @@ describe('WorkspaceStore, Tools Registry, Prompt Guard & Stateless GeminiOrchest
         expect(result.mappings).toHaveLength(2);
         expect(result.mappings[0]!.targetField).toBe('ncm');
         expect(result.unmappedColumns).toEqual(['Obs Interna']);
+      } finally {
+        store.close();
+      }
+    });
+
+    it('throws descriptive error on failed or errored Interactions responses without persisting empty assistant message', async () => {
+      const store = new WorkspaceStore(':memory:');
+      const session = store.createSession('Teste Erro Gemini');
+
+      const failedClient: InteractionsClient = {
+        interactions: {
+          create: vi.fn(async (): Promise<InteractionResponse> => ({
+            id: 'int-failed-1',
+            status: 'failed',
+            errors: [{ code: 'MODEL_ERROR', message: 'Upstream timeout' }],
+          })),
+        },
+      };
+
+      try {
+        const orchestrator = new GeminiOrchestrator({
+          repo,
+          router,
+          store,
+          client: failedClient,
+        });
+
+        await expect(
+          orchestrator.runChatTurn({
+            sessionId: session.id,
+            userMessage: 'Calcule algo',
+            onDelta: () => {},
+          }),
+        ).rejects.toThrow(/Upstream timeout/);
+
+        const assistantMsgs = store
+          .listMessages(session.id)
+          .filter((m) => m.role === 'assistant');
+        expect(assistantMsgs).toHaveLength(0);
+      } finally {
+        store.close();
+      }
+    });
+
+    it('includes explicit confidence field properties in extractFromVisualDocument response_format schema', async () => {
+      const store = new WorkspaceStore(':memory:');
+      let capturedResponseFormat: Record<string, unknown> | undefined;
+
+      const mockClient: InteractionsClient = {
+        interactions: {
+          create: vi.fn(async (params: InteractionCreateParams): Promise<InteractionResponse> => {
+            capturedResponseFormat = params.response_format;
+            return {
+              id: 'int-schema-1',
+              status: 'completed',
+              output_text: JSON.stringify({
+                itens: [],
+                warnings: [],
+              }),
+            };
+          }),
+        },
+      };
+
+      try {
+        const orchestrator = new GeminiOrchestrator({
+          repo,
+          router,
+          store,
+          client: mockClient,
+        });
+
+        await orchestrator.extractFromVisualDocument(
+          Buffer.from('fake-png-bytes'),
+          'image/png',
+          'nota.png',
+        );
+
+        const schema = capturedResponseFormat?.schema as {
+          properties?: {
+            itens?: {
+              items?: {
+                properties?: {
+                  confidence?: {
+                    properties?: Record<string, unknown>;
+                    additionalProperties?: unknown;
+                  };
+                };
+              };
+            };
+          };
+        };
+        const confidenceSchema = schema?.properties?.itens?.items?.properties?.confidence;
+        expect(confidenceSchema?.properties?.ncm).toEqual({
+          type: 'string',
+          enum: ['high', 'medium', 'low', 'missing'],
+        });
+        expect(confidenceSchema?.additionalProperties).toEqual({
+          type: 'string',
+          enum: ['high', 'medium', 'low', 'missing'],
+        });
       } finally {
         store.close();
       }

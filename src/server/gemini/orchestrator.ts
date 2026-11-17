@@ -65,6 +65,7 @@ export interface InteractionResponse {
   status?: string;
   output_text?: string;
   steps?: Array<InteractionStepOutput>;
+  errors?: Array<{ code?: string; message?: string; [k: string]: unknown }>;
   [k: string]: unknown;
 }
 
@@ -148,6 +149,11 @@ const ColumnMappingResponseSchema = z.object({
   suggestedRegime: z.enum(['regime-regular', 'simples-nacional', 'comparativo']).optional(),
 });
 
+const CONFIDENCE_FIELD_SCHEMA = {
+  type: 'string',
+  enum: ['high', 'medium', 'low', 'missing'],
+} as const;
+
 const VISUAL_EXTRACTION_JSON_SCHEMA = {
   type: 'object',
   properties: {
@@ -188,7 +194,32 @@ const VISUAL_EXTRACTION_JSON_SCHEMA = {
           vIS: { type: 'string' },
           pIBSSN: { type: 'string' },
           pCBSSN: { type: 'string' },
-          confidence: { type: 'object' },
+          confidence: {
+            type: 'object',
+            properties: {
+              descricao: CONFIDENCE_FIELD_SCHEMA,
+              ncm: CONFIDENCE_FIELD_SCHEMA,
+              nbs: CONFIDENCE_FIELD_SCHEMA,
+              cst: CONFIDENCE_FIELD_SCHEMA,
+              cClassTrib: CONFIDENCE_FIELD_SCHEMA,
+              cAtivSN: CONFIDENCE_FIELD_SCHEMA,
+              baseCalculo: CONFIDENCE_FIELD_SCHEMA,
+              quantidade: CONFIDENCE_FIELD_SCHEMA,
+              unidade: CONFIDENCE_FIELD_SCHEMA,
+              vProd: CONFIDENCE_FIELD_SCHEMA,
+              vFrete: CONFIDENCE_FIELD_SCHEMA,
+              vSeg: CONFIDENCE_FIELD_SCHEMA,
+              vOutro: CONFIDENCE_FIELD_SCHEMA,
+              vDesc: CONFIDENCE_FIELD_SCHEMA,
+              vICMS: CONFIDENCE_FIELD_SCHEMA,
+              vPIS: CONFIDENCE_FIELD_SCHEMA,
+              vCOFINS: CONFIDENCE_FIELD_SCHEMA,
+              vIS: CONFIDENCE_FIELD_SCHEMA,
+              pIBSSN: CONFIDENCE_FIELD_SCHEMA,
+              pCBSSN: CONFIDENCE_FIELD_SCHEMA,
+            },
+            additionalProperties: CONFIDENCE_FIELD_SCHEMA,
+          },
           missingFields: { type: 'array', items: { type: 'string' } },
         },
         required: ['nObj', 'confidence', 'missingFields'],
@@ -396,7 +427,17 @@ export class GeminiOrchestrator {
       model: GEMINI_COPILOT_MODEL,
       store: false,
     };
-    return client.interactions.create(params);
+    const response = await client.interactions.create(params);
+    const hasErrors = Array.isArray(response.errors) && response.errors.length > 0;
+    if (response.status === 'failed' || response.status === 'cancelled' || hasErrors) {
+      const detail = hasErrors
+        ? response.errors!
+            .map((e) => e.message || e.code || JSON.stringify(e))
+            .join('; ')
+        : `status=${response.status ?? 'unknown'}`;
+      throw new Error(`Falha na interação Gemini (${response.status ?? 'erro'}): ${detail}`);
+    }
+    return response;
   }
 
   async runChatTurn(params: RunChatTurnParams): Promise<AssistantTurnRecord> {
