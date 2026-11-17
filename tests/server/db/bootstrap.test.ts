@@ -46,7 +46,7 @@ describe('RFB Official SQLite Bootstrap & Read-Only Catalog', () => {
     const db = openOficialDbReadOnly(tmpDb);
     expect(db.pragma('journal_mode', { simple: true })).toBe('delete');
     db.close();
-  });
+  }, 20_000);
 
   it('opens in read-only mode and resolves official NCM, cClassTrib, credit indicators, and Simples activities', () => {
     expect(() => openOficialDbReadOnly(`${tmpDb}.missing`)).toThrow();

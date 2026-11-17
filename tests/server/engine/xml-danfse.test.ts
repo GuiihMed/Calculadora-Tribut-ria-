@@ -146,6 +146,11 @@ describe('Tax XML Generator, Structure Validator & DANFSe Local PDF Preview', ()
       xsdValidationMode: 'structural-local',
       errors: [],
     });
+
+    const nfceResult = generateTaxXmlFromCalcRun(snapshot, 'nfce');
+    expect(nfceResult.supported).toBe(true);
+    expect(nfceResult.xml).toContain('tipoDfe="nfce"');
+    expect(validateTaxXmlStructure(nfceResult.xml!, 'nfce', 'nota').valid).toBe(true);
   });
 
   it('returns supported=false on Simples Nacional CalcRunSnapshot and when 0 valid items remain', () => {
@@ -232,12 +237,29 @@ describe('Tax XML Generator, Structure Validator & DANFSe Local PDF Preview', ()
     const resMissingTotal = validateTaxXmlStructure(notaSemTotal, 'nfe', 'nota');
     expect(resMissingTotal.valid).toBe(false);
     expect(resMissingTotal.errors.length).toBeGreaterThan(0);
+
+    const notaTotalVazio = `<infNFe><det nItem="1"><imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det><total/></infNFe>`;
+    const resEmptyTotal = validateTaxXmlStructure(notaTotalVazio, 'nfe', 'nota');
+    expect(resEmptyTotal.valid).toBe(false);
+    expect(resEmptyTotal.errors.some((e) => /IBSCBSTot|ISTot/i.test(e))).toBe(true);
+
+    const nfseSample = `<NFSe><infNFSe Id="NFS1"><IBSCBS><totCIBS/></IBSCBS></infNFSe></NFSe>`;
+    expect(validateTaxXmlStructure(nfseSample, 'nfse', 'nota').valid).toBe(true);
+    expect(validateTaxXmlStructure(nfseSample, 'nfe', 'nota').valid).toBe(false);
+
+    const nfeSample = `<infNFe><det nItem="1"><imposto><IBSCBS><CST>000</CST></IBSCBS></imposto></det><total><IBSCBSTot><vBCIBSCBS>100.00</vBCIBSCBS></IBSCBSTot></total></infNFe>`;
+    expect(validateTaxXmlStructure(nfeSample, 'nfse', 'nota').valid).toBe(false);
+
+    const oversizedXml = `<infNFe>${'a'.repeat(2 * 1024 * 1024 + 10)}</infNFe>`;
+    const resOversized = validateTaxXmlStructure(oversizedXml, 'nfe', 'nota');
+    expect(resOversized.valid).toBe(false);
+    expect(resOversized.errors.some((e) => /2 MiB/i.test(e))).toBe(true);
   });
 
   it('generates local DANFSe PDF preview from valid NFSe XML with local preview notice and rejects XXE', async () => {
     const nfseXml = `<NFSe versao="1.00">
       <infNFSe Id="NFS3550308120000000001" dhProc="2027-03-10T10:00:00-03:00">
-        <nNFSe>1042</nNFSe>
+        <nNFSe versao="1">1042</nNFSe>
         <xLocEmi>São Paulo</xLocEmi>
         <xLocIncid>São Paulo</xLocIncid>
         <xUFIncid>SP</xUFIncid>
@@ -301,10 +323,11 @@ describe('Tax XML Generator, Structure Validator & DANFSe Local PDF Preview', ()
     expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(500);
     expect(LOCAL_PREVIEW_NOTICE).toContain('PRÉVIA LOCAL');
-    expect(pdf.toString('latin1')).toContain('PRÉVIA LOCAL');
     expect(pdf.toString('utf8')).toContain(
       'PREVIA LOCAL - Conecte o servico Go/WASM oficial da RFB para o PDF oficial',
     );
+    expect(pdf.toString('utf8')).toContain('DANFSe Preview 1042');
+    expect(pdf.toString('utf8')).not.toContain('[object Object]');
 
     const pdfCancelledNoCanhoto = await generateDanfsePreviewPdf(nfseXml, 1, false);
     expect(pdfCancelledNoCanhoto.subarray(0, 5).toString('ascii')).toBe('%PDF-');

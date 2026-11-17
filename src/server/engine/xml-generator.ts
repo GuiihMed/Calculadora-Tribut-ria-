@@ -8,6 +8,7 @@ import type {
   XmlValidationResult,
 } from '../../shared/types/fiscal.js';
 
+const MAX_XML_BYTES = 2 * 1024 * 1024;
 const DTD_OR_ENTITY_RE = /<!\s*(DOCTYPE|ENTITY)\b/i;
 
 function escapeXml(value: string): string {
@@ -277,12 +278,12 @@ function getByPath(node: unknown, key: string): unknown {
 }
 
 /**
- * Validates XML well-formedness, rejects XXE (DOCTYPE/ENTITY), and checks
- * required structural RTC tags for 'nota' or 'grupo' subtypes locally.
+ * Validates XML well-formedness, rejects XXE (DOCTYPE/ENTITY), enforces size
+ * limit and checks required structural RTC tags for 'nota' or 'grupo' subtypes locally.
  */
 export function validateTaxXmlStructure(
   xml: string,
-  _tipo: string,
+  tipo: string,
   subtipo: 'grupo' | 'nota',
 ): XmlValidationResult {
   const errors: string[] = [];
@@ -292,6 +293,14 @@ export function validateTaxXmlStructure(
       valid: false,
       xsdValidationMode: 'structural-local',
       errors: ['XML vazio ou inválido.'],
+    };
+  }
+
+  if (Buffer.byteLength(xml, 'utf8') > MAX_XML_BYTES) {
+    return {
+      valid: false,
+      xsdValidationMode: 'structural-local',
+      errors: ['XML excede o limite máximo de 2 MiB para validação estrutural.'],
     };
   }
 
@@ -334,39 +343,50 @@ export function validateTaxXmlStructure(
   }
 
   // subtipo === 'nota'
+  const normalizedTipo = (tipo ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const nfeRoot = getByPath(parsed, 'NFe');
   const infNFe = getByPath(parsed, 'infNFe') ?? getByPath(nfeRoot, 'infNFe');
   const nfceRoot = getByPath(parsed, 'NFCe');
-  const infNfce = infNFe ?? getByPath(nfceRoot, 'infNFe');
+  const infNfce = getByPath(parsed, 'infNFCe') ?? getByPath(nfceRoot, 'infNFCe') ?? getByPath(nfceRoot, 'infNFe') ?? infNFe;
   const nfseRoot = getByPath(parsed, 'NFSe');
-  const infNfse = getByPath(nfseRoot, 'infNFSe');
+  const infNfse = getByPath(parsed, 'infNFSe') ?? getByPath(nfseRoot, 'infNFSe');
 
-  if (infNfce) {
-    if (!hasKeyDeep(infNfce, 'det')) {
-      errors.push('Nota fiscal deve conter ao menos um grupo <det>.');
+  const validateNfeLikeNode = (rootNode: unknown, label: string): void => {
+    if (!hasKeyDeep(rootNode, 'det')) {
+      errors.push(`${label} deve conter ao menos um grupo <det>.`);
     }
-    if (!hasKeyDeep(infNfce, 'IBSCBS')) {
-      errors.push('Nota fiscal deve conter o grupo <IBSCBS>.');
+    if (!hasKeyDeep(rootNode, 'IBSCBS')) {
+      errors.push(`${label} deve conter o grupo <IBSCBS>.`);
     }
-    if (!hasKeyDeep(infNfce, 'total')) {
-      errors.push('Nota fiscal deve conter o grupo <total>.');
+    const totalNode = getByPath(rootNode, 'total');
+    if (totalNode === undefined) {
+      errors.push(`${label} deve conter o grupo <total>.`);
+    } else if (!hasKeyDeep(totalNode, 'IBSCBSTot') && !hasKeyDeep(totalNode, 'ISTot')) {
+      errors.push(`${label} deve conter <IBSCBSTot> ou <ISTot> dentro de <total>.`);
     }
-  } else if (nfceRoot) {
-    if (!hasKeyDeep(nfceRoot, 'det')) {
-      errors.push('NFC-e deve conter ao menos um grupo <det>.');
+  };
+
+  if (normalizedTipo === 'nfe' || normalizedTipo === '55') {
+    if (!infNFe) {
+      errors.push('Elemento raiz esperado para NF-e não encontrado (<infNFe> ou <NFe><infNFe>).');
+    } else {
+      validateNfeLikeNode(infNFe, 'NF-e');
     }
-    if (!hasKeyDeep(nfceRoot, 'IBSCBS')) {
-      errors.push('NFC-e deve conter o grupo <IBSCBS>.');
+  } else if (normalizedTipo === 'nfce' || normalizedTipo === '65') {
+    const targetNode = infNfce ?? nfceRoot;
+    if (!targetNode) {
+      errors.push('Elemento raiz esperado para NFC-e não encontrado (<NFCe>, <infNFCe> ou <infNFe>).');
+    } else {
+      validateNfeLikeNode(targetNode, 'NFC-e');
     }
-    if (!hasKeyDeep(nfceRoot, 'total')) {
-      errors.push('NFC-e deve conter o grupo <total>.');
-    }
-  } else if (infNfse) {
-    if (!hasKeyDeep(infNfse, 'IBSCBS')) {
+  } else if (normalizedTipo === 'nfse') {
+    if (!infNfse) {
+      errors.push('Elemento raiz esperado para NFS-e não encontrado (<NFSe><infNFSe>).');
+    } else if (!hasKeyDeep(infNfse, 'IBSCBS')) {
       errors.push('NFS-e deve conter o grupo <IBSCBS>.');
     }
   } else {
-    errors.push('Elemento raiz esperado não encontrado (<infNFe>, <NFCe> ou <NFSe><infNFSe>).');
+    errors.push(`Tipo de documento XML não suportado para validação local: '${tipo}'.`);
   }
 
   return {

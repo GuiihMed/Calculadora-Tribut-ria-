@@ -1,3 +1,4 @@
+import type { Decimal } from 'decimal.js';
 import {
   FiscalDecimal,
   formatCurrency,
@@ -46,6 +47,23 @@ function parseIsoCalendarDate(raw: string | undefined): string | null {
   return datePart;
 }
 
+function tryParseFiscalDecimal(value: DecimalInput | undefined | null): Decimal | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? new FiscalDecimal(value) : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      return null;
+    }
+    return new FiscalDecimal(trimmed);
+  }
+  return null;
+}
+
 function toRegimeRegularItem(item: CompareRegimesItemInput, index: number): OperacaoItemInput {
   const nObj = item.nObj ?? index + 1;
 
@@ -59,17 +77,13 @@ function toRegimeRegularItem(item: CompareRegimesItemInput, index: number): Oper
       baseCalculo: bcIs,
     };
 
-    if (
-      impostoSeletivo.valorInformado !== undefined &&
-      impostoSeletivo.valorInformado !== null &&
-      `${impostoSeletivo.valorInformado}`.trim() !== ''
-    ) {
+    const bcDec = tryParseFiscalDecimal(item.baseCalculo);
+    const isInfDec = tryParseFiscalDecimal(impostoSeletivo.valorInformado);
+    if (bcDec !== null && isInfDec !== null) {
       // CompareRegimesItemInput.baseCalculo represents the base BEFORE Imposto Seletivo.
       // When valorInformado is also passed to RegimeRegularEngine, REG-026 requires
       // item.baseCalculo == bcIS + valorInformado so (base - isInf + isCalc) == base + vIS.
-      baseCalculo = new FiscalDecimal(item.baseCalculo)
-        .plus(new FiscalDecimal(impostoSeletivo.valorInformado))
-        .toString();
+      baseCalculo = bcDec.plus(isInfDec).toString();
     }
   }
 
@@ -198,11 +212,11 @@ export function compareRegimes(
     const rrItem = rrOutput.itens.find((it) => it.nObj === nObj) ?? rrOutput.itens[idx];
     if (rrItem?.gIS?.vIS) {
       isValueByObj.set(nObj, rrItem.gIS.vIS);
-    } else if (
-      item.impostoSeletivo?.valorInformado !== undefined &&
-      item.impostoSeletivo?.valorInformado !== null
-    ) {
-      isValueByObj.set(nObj, formatCurrency(item.impostoSeletivo.valorInformado));
+    } else {
+      const isInfDec = tryParseFiscalDecimal(item.impostoSeletivo?.valorInformado);
+      if (isInfDec !== null) {
+        isValueByObj.set(nObj, formatCurrency(isInfDec));
+      }
     }
   });
 
@@ -216,6 +230,8 @@ export function compareRegimes(
     avisos.push(...rrOutput.avisos);
   }
 
+  const rrErrors = collectRegimeRegularErrors(rrOutput);
+
   const regimeRegularScenario: RegimeComparisonScenario = {
     cenario: 'regime_regular',
     titulo: 'Regime Regular (Apuração Normal)',
@@ -225,7 +241,7 @@ export function compareRegimes(
     totalTributos: rrTotalTributos,
     apropriacaoCreditoAdquirente: summarizeRegimeRegularCredits(rrOutput, false),
     observacoes: hasAnyImpostoSeletivo ? [baseBridgeNote, ...rrOutput.avisos] : [...rrOutput.avisos],
-    erros: collectRegimeRegularErrors(rrOutput),
+    erros: rrErrors,
     detalhe: rrOutput,
   };
 
@@ -285,29 +301,24 @@ export function compareRegimes(
   };
 
   // 3. Simples Híbrido (CRT=1, Optante Regime Regular — tpRegimeIBSCBS=1 / VSN-019)
-  const rrHibridoOutput = rr.calculate(rrInput, 'observabilidade');
-  const hibTotalIS = rrHibridoOutput.ISTot?.vIS ?? '0.00';
-  const hibTotalCBS = rrHibridoOutput.IBSCBSTot?.gCBS.vCBS ?? '0.00';
-  const hibTotalIBS = rrHibridoOutput.IBSCBSTot?.gIBS.vIBS ?? '0.00';
-  const hibTotalTributos = formatCurrency(totalizeExact([hibTotalIS, hibTotalCBS, hibTotalIBS]));
-
+  // Reuses the deterministic Regime Regular calculation (rrOutput) per NT 2026.005 VSN-019.
   const hibridoObservacoes = [
     'NT 2026.005 (VSN-019): optante do Simples Nacional com tpRegimeIBSCBS=1 apura CBS e IBS fora do DAS, pelo Regime Regular.',
     ...(hasAnyImpostoSeletivo ? [baseBridgeNote] : []),
-    ...rrHibridoOutput.avisos,
+    ...rrOutput.avisos,
   ];
 
   const simplesHibridoScenario: RegimeComparisonScenario = {
     cenario: 'simples_hibrido',
     titulo: 'Simples Híbrido (CRT=1, Optante Regime Regular — tpRegimeIBSCBS=1)',
-    totalIS: hibTotalIS,
-    totalCBS: hibTotalCBS,
-    totalIBS: hibTotalIBS,
-    totalTributos: hibTotalTributos,
-    apropriacaoCreditoAdquirente: summarizeRegimeRegularCredits(rrHibridoOutput, true),
+    totalIS: rrTotalIS,
+    totalCBS: rrTotalCBS,
+    totalIBS: rrTotalIBS,
+    totalTributos: rrTotalTributos,
+    apropriacaoCreditoAdquirente: summarizeRegimeRegularCredits(rrOutput, true),
     observacoes: hibridoObservacoes,
-    erros: collectRegimeRegularErrors(rrHibridoOutput),
-    detalhe: rrHibridoOutput,
+    erros: rrErrors,
+    detalhe: rrOutput,
   };
 
   const cenarios: RegimeComparisonScenario[] = [
@@ -324,18 +335,17 @@ export function compareRegimes(
       tpRegimeIBSCBS: null,
     };
     const snCrt2Output = sn.calculate(snCrt2Input);
-    const rrSubOutput = rr.calculate(rrInput, 'observabilidade');
 
-    const subTotalIS = rrSubOutput.ISTot?.vIS ?? '0.00';
+    const subTotalIS = rrTotalIS;
     const subTotalCBS = snCrt2Output.totais.vCBSSN;
-    const subTotalIBS = rrSubOutput.IBSCBSTot?.gIBS.vIBS ?? '0.00';
+    const subTotalIBS = rrTotalIBS;
     const subTotalTributos = formatCurrency(totalizeExact([subTotalIS, subTotalCBS, subTotalIBS]));
 
     const subObservacoes = [
       'CRT=2 (Excesso de Sublimite estadual): conforme RASN_IN_GERA_IBS=0 na NT 2026.005, a CBS é apurada pelo Simples Nacional e o IBS é apurado pelo Regime Regular.',
       ...(hasAnyImpostoSeletivo ? [baseBridgeNote] : []),
       ...snCrt2Output.avisos,
-      ...rrSubOutput.avisos,
+      ...rrOutput.avisos,
     ];
 
     cenarios.push({
@@ -350,7 +360,7 @@ export function compareRegimes(
       observacoes: subObservacoes,
       erros: [
         ...collectSimplesErrors(snCrt2Output),
-        ...collectRegimeRegularErrors(rrSubOutput),
+        ...rrErrors,
       ],
       detalhe: snCrt2Output,
     });

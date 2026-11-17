@@ -21,17 +21,25 @@ function str(val: unknown, fallback = '—'): string {
   if (val === undefined || val === null) {
     return fallback;
   }
+  if (typeof val === 'object') {
+    if (Array.isArray(val)) {
+      return val.length > 0 ? str(val[0], fallback) : fallback;
+    }
+    const obj = val as Record<string, unknown>;
+    if ('#text' in obj) {
+      return str(obj['#text'], fallback);
+    }
+    return fallback;
+  }
   const s = String(val).trim();
   return s.length > 0 ? s : fallback;
 }
 
 function firstStr(...vals: unknown[]): string {
   for (const v of vals) {
-    if (v !== undefined && v !== null) {
-      const s = String(v).trim();
-      if (s.length > 0) {
-        return s;
-      }
+    const resolved = str(v, '');
+    if (resolved.length > 0) {
+      return resolved;
     }
   }
   return '—';
@@ -224,8 +232,8 @@ export async function generateDanfsePreviewPdf(
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Embed verbatim notice in uncompressed PDF stream comment for deterministic inspection
-    doc.addContent(`% ${LOCAL_PREVIEW_NOTICE}`);
+    // Embed verbatim ASCII notice in uncompressed PDF stream comment for deterministic inspection
+    doc.addContent(`% ${LOCAL_PREVIEW_NOTICE_ASCII}`);
 
     // Top local-preview warning banner
     const bannerY = doc.y;
