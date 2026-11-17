@@ -84,6 +84,7 @@ export function App() {
       setActiveSessionId(detail.session.id);
       setMessages(detail.messages);
       setSessionCalcRuns(detail.calcRuns);
+      setActiveDraft(null);
       setActiveContext({
         ...DEFAULT_OPERATION_CONTEXT,
         ...detail.session.activeContext,
@@ -154,13 +155,34 @@ export function App() {
     const nextContext: Partial<OperationContext> = { ...activeContext, ...patch };
     setActiveContext(nextContext);
 
-    if (activeSessionId) {
-      try {
-        const { session } = await updateSessionContext(activeSessionId, nextContext);
-        setSessions((prev) => prev.map((s) => (s.id === session.id ? session : s)));
-      } catch {
-        // Keep optimistic local context even if background persistence fails
-      }
+    if (!activeSessionId) {
+      return;
+    }
+
+    const patchKeys = Object.keys(patch);
+    const hasIncompleteUf =
+      patch.uf !== undefined && patch.uf.trim().length !== 2;
+    if (hasIncompleteUf && patchKeys.length === 1) {
+      return;
+    }
+
+    const serverContext: Partial<OperationContext> = { ...nextContext };
+    if (serverContext.uf !== undefined && serverContext.uf.trim().length !== 2) {
+      delete serverContext.uf;
+    } else if (serverContext.uf !== undefined) {
+      serverContext.uf = serverContext.uf.trim().toUpperCase();
+    }
+
+    try {
+      const { session } = await updateSessionContext(activeSessionId, serverContext);
+      setSessions((prev) => prev.map((s) => (s.id === session.id ? session : s)));
+      setStatusMessage(null);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : 'Não foi possível salvar o contexto da sessão.';
+      setStatusMessage(msg);
     }
   };
 

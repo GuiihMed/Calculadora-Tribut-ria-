@@ -300,6 +300,7 @@ export async function streamChatTurn(
     message: string;
     attachmentSummary?: string;
     activeContext?: Partial<OperationContext>;
+    stream?: boolean;
     signal?: AbortSignal;
   },
   onEvent: (ev: ChatStreamEvent) => void,

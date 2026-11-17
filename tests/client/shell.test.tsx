@@ -269,4 +269,82 @@ describe('Task 10 Frontend Shell & API Client', () => {
     ]);
     expect(ApiError).toBeDefined();
   });
+
+  it('skips PATCH while UF is incomplete and surfaces context persistence errors', async () => {
+    const patchPayloads: unknown[] = [];
+    let shouldFailPatch = false;
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/health') {
+        return new Response(
+          JSON.stringify({ status: 'ok', engines: MOCK_ENGINES, oficialDb: { ready: true } }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url === '/api/sessions') {
+        return new Response(JSON.stringify({ sessions: MOCK_SESSIONS }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url === '/api/sessions/sess-1') {
+        return new Response(
+          JSON.stringify({
+            session: MOCK_SESSIONS[0],
+            messages: [],
+            calcRuns: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url === '/api/sessions/sess-1/context' && init?.method === 'PATCH') {
+        patchPayloads.push(JSON.parse(String(init.body)));
+        if (shouldFailPatch) {
+          return new Response(
+            JSON.stringify({ code: 'INTERNAL_ERROR', message: 'Falha ao persistir contexto.' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            session: {
+              ...MOCK_SESSIONS[0],
+              activeContext: { ...MOCK_SESSIONS[0]!.activeContext, uf: 'SP' },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response('{}', { status: 404 });
+    });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<App />);
+
+    const ufInput = await screen.findByLabelText('UF');
+    await waitFor(() => {
+      expect(ufInput).toHaveValue('RS');
+    });
+
+    // Incomplete 1-char UF updates local input without calling PATCH
+    fireEvent.change(ufInput, { target: { value: 'S' } });
+    expect(ufInput).toHaveValue('S');
+    expect(patchPayloads).toHaveLength(0);
+
+    // Complete 2-char UF triggers PATCH
+    fireEvent.change(ufInput, { target: { value: 'sp' } });
+    await waitFor(() => {
+      expect(patchPayloads).toHaveLength(1);
+    });
+    expect(patchPayloads[0]).toMatchObject({ context: { uf: 'SP' } });
+
+    // Surface persistence failure in alert banner
+    shouldFailPatch = true;
+    fireEvent.change(ufInput, { target: { value: 'RJ' } });
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Falha ao persistir contexto.');
+    });
+  });
 });
