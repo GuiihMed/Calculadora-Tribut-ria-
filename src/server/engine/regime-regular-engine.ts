@@ -794,10 +794,23 @@ export class RegimeRegularEngine {
         }
       }
 
-      // 7. Nomenclature annex validation
+      // 7. Priority unimplemented classification check (TRTR_IN_POSSUI_AJUSTE = 1 -> CAL-007 / NAO_IMPLEMENTADO)
+      if (origTratamento.inPossuiAjuste || effectiveTratamento.inPossuiAjuste) {
+        const unimplCode = origTratamento.inPossuiAjuste
+          ? origClassif.cClassTrib
+          : effectiveClassif.cClassTrib;
+        throw new EngineValidationError(
+          'CAL-007',
+          `Classificação tributária '${unimplCode}' possui ajuste ainda não implementado.`,
+          'cClassTrib',
+          'NAO_IMPLEMENTADO',
+        );
+      }
+
+      // 8. Nomenclature annex validation
       this.validateNomenclature(ncm, nbs, effectiveClassif, refDate, tipoDfe);
 
-      // 8. Imposto Seletivo resolution & calculation
+      // 9. Imposto Seletivo resolution & calculation
       const isCalc = this.resolveAndCalculateIs(
         item,
         ncm,
@@ -807,16 +820,6 @@ export class RegimeRegularEngine {
         tipoDfe,
       );
       const impostoSeletivoCalculado = isCalc ? isCalc.vIS : new FiscalDecimal(0);
-
-      // 9. Unimplemented classification check (TRTR_IN_POSSUI_AJUSTE = 1 -> CAL-007 / NAO_IMPLEMENTADO)
-      if (effectiveTratamento.inPossuiAjuste) {
-        throw new EngineValidationError(
-          'CAL-007',
-          `Classificação tributária '${effectiveClassif.cClassTrib}' possui ajuste ainda não implementado.`,
-          'cClassTrib',
-          'NAO_IMPLEMENTADO',
-        );
-      }
 
       // 10. Calculate CBS, IBS UF, IBS Mun
       const cbsCalc = this.calculateCbsIbsComponent(
@@ -1484,6 +1487,15 @@ export class RegimeRegularEngine {
     }
 
     if (!hasResolvedRate) {
+      if (isInput && !existeIncidenciaIS) {
+        const label = ncm ? 'NCM' : 'NBS';
+        const code = ncm ?? nbs ?? '';
+        throw new EngineValidationError(
+          'REG-014',
+          `O ${label} ${code} não está sujeito ao Imposto Seletivo.`,
+          'impostoSeletivo',
+        );
+      }
       return null;
     }
 
@@ -1828,9 +1840,7 @@ export class RegimeRegularEngine {
 
     const exprAliq = tratamento.expressaoAliquota?.trim() ?? '';
     let resultadoAliquota: Decimal = valorAliquota;
-    if (aliquotaInformadaAplicada && (!exprAliq || !/\baliquota\b/.test(exprAliq))) {
-      resultadoAliquota = valorAliquota;
-    } else if (exprAliq) {
+    if (exprAliq) {
       resultadoAliquota = evaluateTaxExpression(exprAliq, {
         ...baseVars,
         aliquota: valorAliquota,
@@ -1897,10 +1907,7 @@ export class RegimeRegularEngine {
         aliquota: resultadoAliquota,
         aliquotaEfetiva: resultadoAliquotaEfetiva,
       });
-      // Mirrors CalculoCbsIbsService.java lines 445-454
-      resultadoTributoCalculado = roundInternal8(
-        resultadoTributoCalculado.minus(resultadoValorDiferimento),
-      );
+      // Keep pre-deferral resultadoTributoCalculado intact; deduct resultadoValorDiferimento once for resultadoTributoDevido
       resultadoTributoDevido = roundInternal8(
         resultadoTributoCalculado.minus(resultadoValorDiferimento),
       );

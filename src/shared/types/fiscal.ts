@@ -145,7 +145,7 @@ export const OperacaoItemInputSchema = z.object({
   nbs: z.string().trim().optional(),
   cst: z.string().trim().min(1),
   cClassTrib: z.string().trim().min(1),
-  baseCalculo: DecimalInputSchema,
+  baseCalculo: DecimalInputSchema.optional(),
   quantidade: DecimalInputSchema.optional(),
   unidade: z.string().trim().optional(),
   aliquotasNominais: AliquotasNominaisInputSchema.optional(),

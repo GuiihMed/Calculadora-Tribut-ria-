@@ -1,10 +1,11 @@
+import fs from 'node:fs';
+import Database from 'better-sqlite3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type Database from 'better-sqlite3';
 import { openOficialDbReadOnly } from '../../../src/server/db/oficial-db.js';
 import { DadosAbertosRepository } from '../../../src/server/db/dados-abertos-repo.js';
 import { lookupErrorDescription } from '../../../src/server/engine/error-catalog.js';
 import { RegimeRegularEngine } from '../../../src/server/engine/regime-regular-engine.js';
-import type { OperacaoInput } from '../../../src/shared/types/fiscal.js';
+import { OperacaoInputSchema, type OperacaoInput } from '../../../src/shared/types/fiscal.js';
 
 describe('Error Catalog & Regime Regular Engine (LocalTsEngine Part 1)', () => {
   let db: Database.Database;
@@ -186,7 +187,7 @@ describe('Error Catalog & Regime Regular Engine (LocalTsEngine Part 1)', () => {
   });
 
   it('derives CBS/IBS base from IS base + IS when baseCalculo is omitted on IS items (exemplos.md raw input)', () => {
-    const rawBeer = {
+    const rawBeer = OperacaoInputSchema.parse({
       id: 'beer-derived',
       versao: '1.0.0',
       dhFatoGerador: '2027-03-10T10:00:00-03:00',
@@ -212,7 +213,7 @@ describe('Error Catalog & Regime Regular Engine (LocalTsEngine Part 1)', () => {
           aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
         },
       ],
-    } as unknown as OperacaoInput;
+    });
 
     const result = engine.calculate(rawBeer, 'observabilidade');
     const item1 = result.itens[0]!;
@@ -457,5 +458,789 @@ describe('Error Catalog & Regime Regular Engine (LocalTsEngine Part 1)', () => {
     expect(cgItem.gIBSCBS?.vIBS).toBe('0.00');
     expect(cgItem.gIBSCBS?.gCBS?.pAliqEfet).toBe('8.90');
     expect(cgItem.gIBSCBS?.gCBS?.vCBS).toBe('89.00');
+  });
+
+  it('calculates diferimento (510001 and 515001) preserving pre-deferral valorCalculado and deducting valorDiferimento once', () => {
+    // 510001 (TRTR_ID = 20): 100% deferral in 2027 with manual rates
+    const dif510 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '510',
+            cClassTrib: '510001',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    const item510 = dif510.itens[0]!;
+    expect(item510.estadoItem).toBe('CALCULO_SIMULADO');
+    expect(item510.gIBSCBS?.gCBS?.vCBS).toBe('0.00');
+    expect(item510.gIBSCBS?.gCBS?.vDif).toBe('88.00');
+    expect(item510.gIBSCBS?.gIBSUF?.vIBSUF).toBe('0.00');
+    expect(item510.gIBSCBS?.gIBSUF?.vDif).toBe('0.50');
+    expect(item510.gIBSCBS?.gIBSMun?.vIBSMun).toBe('0.00');
+    expect(item510.gIBSCBS?.gIBSMun?.vDif).toBe('0.50');
+    expect(item510.gIBSCBS?.vIBS).toBe('0.00');
+    expect(dif510.IBSCBSTot?.gCBS.vCBS).toBe('0.00');
+    expect(dif510.IBSCBSTot?.gCBS.vDif).toBe('88.00');
+    expect(dif510.IBSCBSTot?.gIBS.gIBSUF.vDif).toBe('0.50');
+    expect(dif510.IBSCBSTot?.gIBS.gIBSMun.vDif).toBe('0.50');
+
+    const memCbs510 = item510.memoriaCalculo.find((m) => m.tributo === 'CBS');
+    const memUf510 = item510.memoriaCalculo.find((m) => m.tributo === 'IBSUF');
+    const memMun510 = item510.memoriaCalculo.find((m) => m.tributo === 'IBSMun');
+    expect(memCbs510?.valorCalculado).toBe('88.00');
+    expect(memCbs510?.valorDiferimento).toBe('88.00');
+    expect(memCbs510?.valorDevido).toBe('0.00');
+    expect(memUf510?.valorCalculado).toBe('0.50');
+    expect(memMun510?.valorCalculado).toBe('0.50');
+
+    // 515001 (TRTR_ID = 21): 60% reduction + 100% deferral in 2026
+    const dif515 = engine.calculate(
+      {
+        dhFatoGerador: '2026-06-01T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '31010000',
+            cst: '515',
+            cClassTrib: '515001',
+            baseCalculo: 1000,
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    const item515 = dif515.itens[0]!;
+    expect(item515.estadoItem).toBe('CALCULADO');
+    expect(item515.gIBSCBS?.gCBS?.pRedAliq).toBe('60.00');
+    expect(item515.gIBSCBS?.gCBS?.pAliqEfet).toBe('0.36');
+    expect(item515.gIBSCBS?.gCBS?.vDif).toBe('3.60');
+    expect(item515.gIBSCBS?.gCBS?.vCBS).toBe('0.00');
+    expect(item515.gIBSCBS?.gIBSUF?.pRedAliq).toBe('60.00');
+    expect(item515.gIBSCBS?.gIBSUF?.pAliqEfet).toBe('0.04');
+    expect(item515.gIBSCBS?.gIBSUF?.vDif).toBe('0.40');
+    expect(item515.gIBSCBS?.gIBSUF?.vIBSUF).toBe('0.00');
+    const memCbs515 = item515.memoriaCalculo.find((m) => m.tributo === 'CBS');
+    expect(memCbs515?.valorCalculado).toBe('3.60');
+    expect(memCbs515?.valorDiferimento).toBe('3.60');
+    expect(memCbs515?.valorDevido).toBe('0.00');
+
+    // Partial deferral regression guard on cloned DB (e.g. 40% deferral: valorCalculado 88.00, vDif 35.20, valorDevido 52.80)
+    const memDb = new Database(fs.readFileSync('data/rtc-oficial.db'));
+    try {
+      memDb
+        .prepare(
+          `UPDATE TRATAMENTO_TRIBUTARIO
+           SET TRTR_EXPRESSAO_PERCENTUAL_DIFERIMENTO = '0.40',
+               TRTR_EXPRESSAO_VALOR_DIFERIMENTO = 'tributoCalculado*0.40'
+           WHERE TRTR_ID = 20`,
+        )
+        .run();
+      const memEngine = new RegimeRegularEngine(memDb);
+      const partialRes = memEngine.calculate(
+        {
+          dhFatoGerador: '2027-03-10T10:00:00-03:00',
+          municipio: 4314902,
+          uf: 'RS',
+          itens: [
+            {
+              ncm: '10063021',
+              cst: '510',
+              cClassTrib: '510001',
+              baseCalculo: 1000,
+              aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            },
+          ],
+        },
+        'observabilidade',
+      );
+      const pItem = partialRes.itens[0]!;
+      expect(pItem.gIBSCBS?.gCBS?.vDif).toBe('35.20');
+      expect(pItem.gIBSCBS?.gCBS?.vCBS).toBe('52.80');
+      expect(pItem.memoriaCalculo.find((m) => m.tributo === 'CBS')?.valorCalculado).toBe('88.00');
+      expect(pItem.gIBSCBS?.gIBSUF?.vDif).toBe('0.20');
+      expect(pItem.gIBSCBS?.gIBSUF?.vIBSUF).toBe('0.30');
+    } finally {
+      memDb.close();
+    }
+  });
+
+  it("evaluates expressaoAliquota = '0' even when aliquotasNominais is supplied", () => {
+    // 820001 (TRTR_ID = 32, expressaoAliquota = '0') with nominal rates supplied
+    const res820 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '820',
+            cClassTrib: '820001',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res820.itens[0]?.estadoItem).toBe('CALCULO_SIMULADO');
+    expect(res820.itens[0]?.gIBSCBS).toBeUndefined();
+
+    // Verify TRTR_EXPRESSAO_ALIQUOTA = '0' forces resultadoAliquota = 0 even when SITR_IND_GIBSCBS = 1 and aliquotasNominais is present
+    const memDb = new Database(fs.readFileSync('data/rtc-oficial.db'));
+    try {
+      memDb.prepare(`UPDATE SITUACAO_TRIBUTARIA SET SITR_IND_GIBSCBS = 1 WHERE SITR_CD = '820'`).run();
+      const memEngine = new RegimeRegularEngine(memDb);
+      const resZeroExpr = memEngine.calculate(
+        {
+          dhFatoGerador: '2027-03-10T10:00:00-03:00',
+          municipio: 4314902,
+          uf: 'RS',
+          itens: [
+            {
+              nbs: '122011200',
+              cst: '820',
+              cClassTrib: '820001',
+              baseCalculo: 1000,
+              aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            },
+          ],
+        },
+        'observabilidade',
+      );
+      const itemZero = resZeroExpr.itens[0]!;
+      expect(itemZero.gIBSCBS?.gCBS?.pCBS).toBe('0.00');
+      expect(itemZero.gIBSCBS?.gCBS?.pAliqEfet).toBe('0.00');
+      expect(itemZero.gIBSCBS?.gCBS?.vCBS).toBe('0.00');
+      expect(itemZero.gIBSCBS?.gIBSUF?.pIBSUF).toBe('0.00');
+      expect(itemZero.gIBSCBS?.gIBSUF?.vIBSUF).toBe('0.00');
+      expect(itemZero.gIBSCBS?.vIBS).toBe('0.00');
+    } finally {
+      memDb.close();
+    }
+  });
+
+  it('handles desoneracao / tributacaoRegular (550001, 200022, REG-009, REG-010, and 550023 -> CAL-007)', () => {
+    // Valid 550001 suspension with tributacaoRegular 000001
+    const res550 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '550',
+            cClassTrib: '550001',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            tributacaoRegular: { cst: '000', cClassTrib: '000001' },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res550.itens[0]?.estadoItem).toBe('CALCULO_SIMULADO');
+    expect(res550.itens[0]?.gIBSCBS?.CST).toBe('550');
+    expect(res550.itens[0]?.gIBSCBS?.cClassTrib).toBe('550001');
+    expect(res550.itens[0]?.gIBSCBS?.gCBS?.pCBS).toBe('0.00');
+    expect(res550.itens[0]?.gIBSCBS?.gCBS?.vCBS).toBe('0.00');
+    expect(res550.itens[0]?.gIBSCBS?.vIBS).toBe('0.00');
+
+    // Valid 200022 ZFM desoneration with tributacaoRegular 000001
+    const res200022 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '200',
+            cClassTrib: '200022',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            tributacaoRegular: { cst: '000', cClassTrib: '000001' },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res200022.itens[0]?.estadoItem).toBe('CALCULO_SIMULADO');
+    expect(res200022.itens[0]?.gIBSCBS?.gCBS?.vCBS).toBe('0.00');
+    expect(res200022.itens[0]?.gIBSCBS?.vIBS).toBe('0.00');
+
+    // REG-009: missing tributacaoRegular on 550001
+    const resReg009 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '550',
+            cClassTrib: '550001',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(resReg009.itens[0]?.estadoItem).toBe('INCONSISTENCIA_ENTRADA');
+    expect(resReg009.itens[0]?.erros[0]?.code).toBe('REG-009');
+
+    // REG-010: tributacaoRegular points to classification incompatible with suspension (550001)
+    const resReg010 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '550',
+            cClassTrib: '550001',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            tributacaoRegular: { cst: '550', cClassTrib: '550001' },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(resReg010.itens[0]?.estadoItem).toBe('INCONSISTENCIA_ENTRADA');
+    expect(resReg010.itens[0]?.erros[0]?.code).toBe('REG-010');
+
+    // 550023 (TRTR_ID = 41, both inExigeGrupoDesoneracao=1 and inPossuiAjuste=1) -> CAL-007 / NAO_IMPLEMENTADO
+    const res550023 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '27101259',
+            cst: '550',
+            cClassTrib: '550023',
+            baseCalculo: 1000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            tributacaoRegular: { cst: '000', cClassTrib: '000001' },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res550023.itens[0]?.estadoItem).toBe('NAO_IMPLEMENTADO');
+    expect(res550023.itens[0]?.erros[0]?.code).toBe('CAL-007');
+  });
+
+  it('validates tipoDfe rules (55, 65, NFSE, REG-028..REG-033, DERE -> CAL-007)', () => {
+    // Valid tpDoc = 55 (NF-e) and tpDoc = 65 (NFC-e)
+    for (const tpDoc of [55, 65] as const) {
+      const okNfe = engine.calculate(
+        {
+          dhFatoGerador: '2027-03-10T10:00:00-03:00',
+          municipio: 4314902,
+          uf: 'RS',
+          tipoDfe: tpDoc,
+          itens: [
+            {
+              ncm: '10063021',
+              cst: '200',
+              cClassTrib: '200003',
+              baseCalculo: 100,
+              aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            },
+          ],
+        },
+        'observabilidade',
+      );
+      expect(okNfe.errosGlobais).toHaveLength(0);
+      expect(okNfe.itens[0]?.estadoItem).toBe('CALCULO_SIMULADO');
+    }
+
+    // Valid tpDoc = 'NFSE'
+    const okNfse = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 'NFSE',
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '200',
+            cClassTrib: '200028',
+            baseCalculo: 1200,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(okNfse.errosGlobais).toHaveLength(0);
+    expect(okNfse.itens[0]?.gIBSCBS?.gCBS?.vCBS).toBe('42.24');
+
+    // REG-028: invalid or out-of-vigencia tipoDfe
+    const badTpDoc = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 99,
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '000',
+            cClassTrib: '000001',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(badTpDoc.errosGlobais[0]?.code).toBe('REG-028');
+
+    // REG-029: classification not linked to tipoDfe (200028 is NFS-e only, rejected on NF-e 55)
+    const unlinkedDfe = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 55,
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '200',
+            cClassTrib: '200028',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(unlinkedDfe.itens[0]?.erros[0]?.code).toBe('REG-029');
+
+    // REG-030: incompatible nomenclature (NBS supplied for NCM-only 200003 on NF-e 55; NCM supplied on NFSE)
+    const reg030NfeNbs = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 55,
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '200',
+            cClassTrib: '200003',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg030NfeNbs.itens[0]?.erros[0]?.code).toBe('REG-030');
+
+    const reg030NfseNcm = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 'NFSE',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '000',
+            cClassTrib: '000001',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg030NfseNcm.itens[0]?.erros[0]?.code).toBe('REG-030');
+
+    // REG-031 is RIGIDO-only in RFB ValidacaoNomenclaturaService (ProcessamentoItemService uses PERMISSIVO)
+    expect(lookupErrorDescription('REG-031')?.codigo).toBe('REG-031');
+
+    // REG-032: IS item on non-IS DFe (NFCom 62)
+    const reg032 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 62,
+        itens: [
+          {
+            ncm: '22030000',
+            cst: '000',
+            cClassTrib: '000001',
+            baseCalculo: 165,
+            impostoSeletivo: {
+              cstIS: '000',
+              cClassTribIS: '000001',
+              baseCalculo: 150,
+              aliquotaAdValorem: 10,
+              valorInformado: 15,
+            },
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg032.itens[0]?.erros[0]?.code).toBe('REG-032');
+
+    // REG-033: MISTO classification (200043) on NFSE with neither NCM nor NBS provided
+    const reg033 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 'NFSE',
+        itens: [
+          {
+            cst: '200',
+            cClassTrib: '200043',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg033.itens[0]?.erros[0]?.code).toBe('REG-033');
+
+    // DERE -> CAL-007 (unimplemented document type)
+    const dereRes = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        tipoDfe: 'DERE',
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '010',
+            cClassTrib: '010001',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(dereRes.errosGlobais[0]?.code).toBe('CAL-007');
+    expect(lookupErrorDescription('CAL-007')?.estadoDefault).toBe('NAO_IMPLEMENTADO');
+  });
+
+  it('validates NBS annex errors (REG-012 and REG-016) and missing baseCalculo without IS (REG-025)', () => {
+    // REG-012: valid 9-digit NBS not in 200028 annex
+    const reg012 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            nbs: '109052100',
+            cst: '200',
+            cClassTrib: '200028',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg012.itens[0]?.erros[0]?.code).toBe('REG-012');
+
+    // REG-016: incomplete NBS and omitted NBS for 200028
+    const reg016Incomplete = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            nbs: '12201',
+            cst: '200',
+            cClassTrib: '200028',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg016Incomplete.itens[0]?.erros[0]?.code).toBe('REG-016');
+
+    const reg016Omitted = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            cst: '200',
+            cClassTrib: '200028',
+            baseCalculo: 100,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg016Omitted.itens[0]?.erros[0]?.code).toBe('REG-016');
+
+    // REG-025: runtime error when baseCalculo is omitted without impostoSeletivo
+    const reg025 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '000',
+            cClassTrib: '000001',
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg025.itens[0]?.erros[0]?.code).toBe('REG-025');
+  });
+
+  it('calculates 2026 fictitious CSTs (010, 221, and 220 -> CAL-007)', () => {
+    // CST 010 (010001): 2026 DB uniform rates CBS 0.90%, IBSUF 0.10%, IBSMun 0.00%
+    const res010 = engine.calculate(
+      {
+        dhFatoGerador: '2026-06-01T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '010',
+            cClassTrib: '010001',
+            baseCalculo: 1000,
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res010.itens[0]?.estadoItem).toBe('CALCULADO');
+    expect(res010.itens[0]?.gIBSCBS?.gCBS?.pCBS).toBe('0.90');
+    expect(res010.itens[0]?.gIBSCBS?.gCBS?.vCBS).toBe('9.00');
+    expect(res010.itens[0]?.gIBSCBS?.gIBSUF?.pIBSUF).toBe('0.10');
+    expect(res010.itens[0]?.gIBSCBS?.gIBSUF?.vIBSUF).toBe('1.00');
+
+    // CST 221 (221001, TRTR_ID 43 Alíquota fixa fictícia): CBS 3.285%, IBSUF 0.365%, IBSMun 0.00%
+    const res221 = engine.calculate(
+      {
+        dhFatoGerador: '2026-06-01T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            nbs: '122011200',
+            cst: '221',
+            cClassTrib: '221001',
+            baseCalculo: 1000,
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res221.itens[0]?.estadoItem).toBe('CALCULADO');
+    expect(res221.itens[0]?.gIBSCBS?.gCBS?.pCBS).toBe('3.285');
+    expect(res221.itens[0]?.gIBSCBS?.gCBS?.vCBS).toBe('32.85');
+    expect(res221.itens[0]?.gIBSCBS?.gIBSUF?.pIBSUF).toBe('0.365');
+    expect(res221.itens[0]?.gIBSCBS?.gIBSUF?.vIBSUF).toBe('3.65');
+    expect(res221.itens[0]?.gIBSCBS?.gIBSMun?.vIBSMun).toBe('0.00');
+
+    // CST 220 (220001 on 2026-01-01, TRTR_ID 34 has TRTR_IN_POSSUI_AJUSTE = 1) -> CAL-007 / NAO_IMPLEMENTADO
+    const res220 = engine.calculate(
+      {
+        dhFatoGerador: '2026-01-01T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '220',
+            cClassTrib: '220001',
+            baseCalculo: 1000,
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(res220.itens[0]?.estadoItem).toBe('NAO_IMPLEMENTADO');
+    expect(res220.itens[0]?.erros[0]?.code).toBe('CAL-007');
+  });
+
+  it('applies Compra Governamental CBS transfer for tpEnteGov 2, 3, and 4 in 2029+ (10% transfer)', () => {
+    for (const tpEnteGov of [2, 3, 4] as const) {
+      const res = engine.calculate(
+        {
+          dhFatoGerador: '2029-03-10T10:00:00-03:00',
+          municipio: 4314902,
+          uf: 'RS',
+          tpEnteGov,
+          pRedCompraGov: 0,
+          itens: [
+            {
+              ncm: '10063021',
+              cst: '000',
+              cClassTrib: '000001',
+              baseCalculo: 1000,
+              aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+            },
+          ],
+        },
+        'observabilidade',
+      );
+      const item = res.itens[0]!;
+      expect(item.gIBSCBS?.gCBS?.pAliqEfet).toBe('7.92');
+      expect(item.gIBSCBS?.gCBS?.vCBS).toBe('79.20');
+      expect(item.gIBSCBS?.vIBS).toBe('9.80');
+      if (tpEnteGov === 4) {
+        expect(item.gIBSCBS?.gIBSUF?.pAliqEfet).toBe('0.00');
+        expect(item.gIBSCBS?.gIBSUF?.vIBSUF).toBe('0.00');
+        expect(item.gIBSCBS?.gIBSMun?.pAliqEfet).toBe('0.98');
+        expect(item.gIBSCBS?.gIBSMun?.vIBSMun).toBe('9.80');
+      } else {
+        expect(item.gIBSCBS?.gIBSUF?.pAliqEfet).toBe('0.98');
+        expect(item.gIBSCBS?.gIBSUF?.vIBSUF).toBe('9.80');
+        expect(item.gIBSCBS?.gIBSMun?.pAliqEfet).toBe('0.00');
+        expect(item.gIBSCBS?.gIBSMun?.vIBSMun).toBe('0.00');
+      }
+    }
+  });
+
+  it('validates Imposto Seletivo adRem, REG-035, REG-013, and REG-014', () => {
+    // IS adRem on tobacco NCM 24021000 (2027)
+    const adRemRes = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '24021000',
+            cst: '000',
+            cClassTrib: '000001',
+            impostoSeletivo: {
+              cstIS: '000',
+              cClassTribIS: '000001',
+              baseCalculo: 200,
+              quantidade: 10,
+              unidade: 'MIL',
+              aliquotaAdRem: 21.3,
+            },
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    const adRemItem = adRemRes.itens[0]!;
+    expect(adRemItem.estadoItem).toBe('CALCULO_SIMULADO');
+    expect(adRemItem.gIS?.pISEspec).toBe('21.30');
+    expect(adRemItem.gIS?.qTrib).toBe('10');
+    expect(adRemItem.gIS?.uTrib).toBe('MIL');
+    expect(adRemItem.gIS?.vIS).toBe('213.00');
+    expect(adRemItem.gIBSCBS?.vBC).toBe('413.00');
+
+    // REG-035: NCM 87032100 has IS incidence in 2027 (rate null in DB), grupo IS sent without manual rate
+    const reg035 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '87032100',
+            cst: '000',
+            cClassTrib: '000001',
+            baseCalculo: 50000,
+            impostoSeletivo: {
+              cstIS: '000',
+              cClassTribIS: '000001',
+              baseCalculo: 50000,
+            },
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg035.itens[0]?.erros[0]?.code).toBe('REG-035');
+
+    // REG-013: NCM 87032100 in 2027 without impostoSeletivo group
+    const reg013 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '87032100',
+            cst: '000',
+            cClassTrib: '000001',
+            baseCalculo: 50000,
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg013.itens[0]?.erros[0]?.code).toBe('REG-013');
+
+    // REG-014: impostoSeletivo (with valorInformado, no manual rates) on non-IS NCM 10063021 must raise REG-014, not silently subtract from vBC
+    const reg014 = engine.calculate(
+      {
+        dhFatoGerador: '2027-03-10T10:00:00-03:00',
+        municipio: 4314902,
+        uf: 'RS',
+        itens: [
+          {
+            ncm: '10063021',
+            cst: '000',
+            cClassTrib: '000001',
+            baseCalculo: 110,
+            impostoSeletivo: {
+              cstIS: '000',
+              cClassTribIS: '000001',
+              baseCalculo: 100,
+              valorInformado: 10,
+            },
+            aliquotasNominais: { pCBS: 8.8, pIBSUF: 0.05, pIBSMun: 0.05 },
+          },
+        ],
+      },
+      'observabilidade',
+    );
+    expect(reg014.itens[0]?.estadoItem).toBe('INCONSISTENCIA_ENTRADA');
+    expect(reg014.itens[0]?.erros[0]?.code).toBe('REG-014');
   });
 });
