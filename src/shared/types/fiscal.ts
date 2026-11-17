@@ -552,3 +552,86 @@ export interface XmlValidationResult {
   xsdValidationMode: 'xsd-official' | 'structural-local';
   errors: string[];
 }
+
+// ============================================================================
+// Workspace Persistence & Gemini Orchestrator Contracts
+// ============================================================================
+
+export type GeminiTurnStep =
+  | {
+      type: 'user_input';
+      content: Array<{ type: 'text'; text: string }>;
+    }
+  | {
+      type: 'function_call';
+      id: string;
+      name: string;
+      arguments: Record<string, unknown>;
+    }
+  | {
+      type: 'function_result';
+      call_id: string;
+      name?: string;
+      result: string;
+      is_error?: boolean;
+    }
+  | {
+      type: 'model_output';
+      content: Array<{ type: 'text'; text: string }>;
+    };
+
+export interface WorkspaceSession {
+  id: string;
+  title: string;
+  activeContext: Partial<OperationContext>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceMessageRecord {
+  id: string;
+  sessionId: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  steps?: GeminiTurnStep[];
+  calcRunId?: string;
+  draftId?: string;
+  groundingWarning?: string;
+  createdAt: string;
+}
+
+export interface ColumnMappingEntry {
+  sourceColumn: string;
+  targetField: string | null;
+  confidence: FieldConfidence;
+  reason?: string;
+}
+
+export interface ColumnMappingSuggestion {
+  mappings: ColumnMappingEntry[];
+  unmappedColumns: string[];
+  warnings: string[];
+  suggestedRegime?: OperationContext['regime'];
+}
+
+export type ChatStreamEvent =
+  | { type: 'tool_start'; toolName: string; callId: string; args: Record<string, unknown> }
+  | { type: 'tool_done'; toolName: string; callId: string; resultSummary: string; calcRunId?: string }
+  | { type: 'calc_run'; snapshot: CalcRunSnapshot }
+  | { type: 'draft_ready'; draft: ExtractionDraft }
+  | { type: 'text_delta'; delta: string }
+  | { type: 'done'; messageId: string; calcRunId?: string; groundingWarning?: string };
+
+export interface AssistantTurnRecord {
+  messageId: string;
+  sessionId: string;
+  content: string;
+  calcRunId?: string;
+  snapshot?: CalcRunSnapshot;
+  draftId?: string;
+  draft?: ExtractionDraft;
+  groundingWarning?: string;
+  toolIterations: number;
+  steps: GeminiTurnStep[];
+  createdAt: string;
+}
