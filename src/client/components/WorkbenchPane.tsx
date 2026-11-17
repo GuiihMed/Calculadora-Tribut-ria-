@@ -12,10 +12,13 @@ import type {
   ExtractionDraft,
   OperationContext,
 } from '../../shared/types/fiscal';
+import { CompareTab } from './CompareTab';
 import { ContextBar } from './ContextBar';
+import { MemoryLegalTab } from './MemoryLegalTab';
 import type { WorkbenchTabId } from './MessageBubble';
 import { ResultsTab } from './ResultsTab';
 import { StagingTab } from './StagingTab';
+import { XmlDanfseTab } from './XmlDanfseTab';
 
 export interface WorkbenchPaneProps {
   activeContext: Partial<OperationContext>;
@@ -67,9 +70,6 @@ export function WorkbenchPane({
   renderMemoryTab,
   renderXmlTab,
 }: WorkbenchPaneProps) {
-  const activeTabLabel =
-    WORKBENCH_TABS.find((t) => t.id === activeTab)?.label ?? activeTab;
-
   return (
     <>
       <ContextBar context={activeContext} onContextPatch={onContextPatch} />
@@ -144,49 +144,35 @@ export function WorkbenchPane({
               onSnapshotCreated,
             })
           ) : (
-            <article className="card">
-              <div className="card__header">
-                <h3 className="card__title">{activeTabLabel}</h3>
-                <span className="badge badge--neutral">compare</span>
-              </div>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                Selecione &ldquo;Comparativo Regimes&rdquo; na barra de contexto para simular lado
-                a lado Regime Regular, Simples Nacional (CRT=1) e Simples Híbrido em datas a partir
-                de 2027-01-01.
-              </p>
-            </article>
+            <CompareTab
+              snapshot={snapshot}
+              draft={draft}
+              activeContext={activeContext}
+              sessionId={sessionId}
+              onContextPatch={onContextPatch}
+              onSnapshotCreated={onSnapshotCreated}
+            />
           ))}
 
         {activeTab === 'memory' &&
           (renderMemoryTab ? (
             renderMemoryTab({ snapshot })
           ) : (
-            <article className="card">
-              <div className="card__header">
-                <h3 className="card__title">{activeTabLabel}</h3>
-                <span className="badge badge--neutral">memory</span>
-              </div>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                A memória de cálculo passo a passo, fórmulas AST e fundamentações legais da LC
-                214/2025 serão exibidas após a execução de um cálculo determinístico.
-              </p>
-            </article>
+            <MemoryLegalTab
+              snapshot={snapshot}
+              onNavigateStaging={() => onTabChange('staging')}
+            />
           ))}
 
         {activeTab === 'xml' &&
           (renderXmlTab ? (
             renderXmlTab({ snapshot, activeContext })
           ) : (
-            <article className="card">
-              <div className="card__header">
-                <h3 className="card__title">{activeTabLabel}</h3>
-                <span className="badge badge--neutral">xml</span>
-              </div>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                Geração de XML dos grupos IBSCBS/IS para NF-e/NFC-e e prévia de DANFSe a partir de
-                XML de NFS-e.
-              </p>
-            </article>
+            <XmlDanfseTab
+              snapshot={snapshot}
+              activeContext={activeContext}
+              onNavigateStaging={() => onTabChange('staging')}
+            />
           ))}
       </div>
     </>
