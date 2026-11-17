@@ -267,6 +267,10 @@ function toBool(value: number | null | undefined): boolean {
 export class DadosAbertosRepository {
   constructor(private readonly db: Database.Database) {}
 
+  getDatabase(): Database.Database {
+    return this.db;
+  }
+
   listUfs(): UfRow[] {
     return this.db
       .prepare(

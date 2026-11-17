@@ -152,15 +152,15 @@ function collectSimplesErrors(output: ObservabilidadeSimplesOutput): FiscalError
   return [...output.errosGlobais, ...output.itens.flatMap((item) => item.erros)];
 }
 
-/**
- * Deterministic side-by-side comparison between Regime Regular, Simples Nacional (CRT=1),
- * Simples Híbrido (CRT=1, tpRegimeIBSCBS=1), and optional Excesso de Sublimite (CRT=2).
- */
-export function compareRegimes(
-  input: CompareRegimesInput,
-  rr: RegimeRegularEngine,
-  sn: SimplesNacionalEngine,
-): CompareRegimesOutput {
+export interface CompareRegimesCalculators {
+  calculateRegimeRegular: (input: OperacaoInput) => Promise<ObservabilidadeRocOutput>;
+  calculateSimplesNacional: (input: OperacaoSimplesInput) => Promise<ObservabilidadeSimplesOutput>;
+}
+
+const BASE_BRIDGE_NOTE =
+  'Ponte de base com Imposto Seletivo (TRBS_IN_IS_COMPOE_RECEITA = 0): no Regime Regular, o IS compõe a base de cálculo de CBS/IBS (baseCalculo + vIS); no Simples Nacional, baseCalculo é mantida sem o IS e valorImpostoSeletivo é repassado separadamente sem compor a receita bruta interna.';
+
+function checkCompareEligibility(input: CompareRegimesInput): CompareRegimesOutput | null {
   const refDate = parseIsoCalendarDate(input.dhFatoGerador);
   if (!refDate) {
     return {
@@ -186,11 +186,11 @@ export function compareRegimes(
     };
   }
 
-  const avisos: string[] = [];
-  const hasAnyImpostoSeletivo = input.itens.some((item) => Boolean(item.impostoSeletivo));
+  return null;
+}
 
-  // 1. Regime Regular (Apuração Normal) — also resolves vIS for the IS base bridge
-  const rrInput: OperacaoInput = {
+function buildRegimeRegularCompareInput(input: CompareRegimesInput): OperacaoInput {
+  return {
     dhFatoGerador: input.dhFatoGerador,
     tipoDfe: input.tpDoc,
     ...(input.uf ? { uf: input.uf } : {}),
@@ -199,8 +199,15 @@ export function compareRegimes(
     ...(input.tpEnteGov !== undefined ? { tpEnteGov: input.tpEnteGov } : {}),
     itens: input.itens.map((item, idx) => toRegimeRegularItem(item, idx)),
   };
+}
 
-  const rrOutput = rr.calculate(rrInput, 'observabilidade');
+function prepareAfterRegimeRegular(
+  input: CompareRegimesInput,
+  rrOutput: ObservabilidadeRocOutput,
+) {
+  const avisos: string[] = [];
+  const hasAnyImpostoSeletivo = input.itens.some((item) => Boolean(item.impostoSeletivo));
+
   const rrTotalIS = rrOutput.ISTot?.vIS ?? '0.00';
   const rrTotalCBS = rrOutput.IBSCBSTot?.gCBS.vCBS ?? '0.00';
   const rrTotalIBS = rrOutput.IBSCBSTot?.gIBS.vIBS ?? '0.00';
@@ -220,11 +227,8 @@ export function compareRegimes(
     }
   });
 
-  const baseBridgeNote =
-    'Ponte de base com Imposto Seletivo (TRBS_IN_IS_COMPOE_RECEITA = 0): no Regime Regular, o IS compõe a base de cálculo de CBS/IBS (baseCalculo + vIS); no Simples Nacional, baseCalculo é mantida sem o IS e valorImpostoSeletivo é repassado separadamente sem compor a receita bruta interna.';
-
   if (hasAnyImpostoSeletivo) {
-    avisos.push(baseBridgeNote);
+    avisos.push(BASE_BRIDGE_NOTE);
   }
   if (rrOutput.xWarningDadosSimulados) {
     avisos.push(...rrOutput.avisos);
@@ -240,12 +244,11 @@ export function compareRegimes(
     totalIBS: rrTotalIBS,
     totalTributos: rrTotalTributos,
     apropriacaoCreditoAdquirente: summarizeRegimeRegularCredits(rrOutput, false),
-    observacoes: hasAnyImpostoSeletivo ? [baseBridgeNote, ...rrOutput.avisos] : [...rrOutput.avisos],
+    observacoes: hasAnyImpostoSeletivo ? [BASE_BRIDGE_NOTE, ...rrOutput.avisos] : [...rrOutput.avisos],
     erros: rrErrors,
     detalhe: rrOutput,
   };
 
-  // 2. Simples Nacional (CRT=1 — Apuração pelo DAS)
   const snItems: OperacaoSimplesItemInput[] = input.itens.map((item, idx) => {
     const nObj = item.nObj ?? idx + 1;
     const vIs = isValueByObj.get(nObj);
@@ -272,7 +275,49 @@ export function compareRegimes(
     itens: snItems,
   };
 
-  const snCrt1Output = sn.calculate(snCrt1Input);
+  const snCrt2Input: OperacaoSimplesInput | null = input.incluirSublimiteCrt2
+    ? {
+        ...snCrt1Input,
+        CRT: 2,
+        tpRegimeIBSCBS: null,
+      }
+    : null;
+
+  return {
+    avisos,
+    hasAnyImpostoSeletivo,
+    isValueByObj,
+    rrOutput,
+    rrTotalIS,
+    rrTotalCBS,
+    rrTotalIBS,
+    rrTotalTributos,
+    rrErrors,
+    regimeRegularScenario,
+    snCrt1Input,
+    snCrt2Input,
+  };
+}
+
+function finalizeCompareOutput(
+  input: CompareRegimesInput,
+  prep: ReturnType<typeof prepareAfterRegimeRegular>,
+  snCrt1Output: ObservabilidadeSimplesOutput,
+  snCrt2Output: ObservabilidadeSimplesOutput | null,
+): CompareRegimesOutput {
+  const {
+    avisos,
+    hasAnyImpostoSeletivo,
+    isValueByObj,
+    rrOutput,
+    rrTotalIS,
+    rrTotalCBS,
+    rrTotalIBS,
+    rrTotalTributos,
+    rrErrors,
+    regimeRegularScenario,
+  } = prep;
+
   const snCrt1IsValues = snCrt1Output.itens
     .filter((it) => it.estadoItem === 'CALCULADO')
     .map((it) => isValueByObj.get(it.nObj) ?? '0');
@@ -283,7 +328,7 @@ export function compareRegimes(
     ...snCrt1Output.itens.flatMap((it) => it.avisos),
   ];
   if (hasAnyImpostoSeletivo) {
-    crt1Observacoes.unshift(baseBridgeNote);
+    crt1Observacoes.unshift(BASE_BRIDGE_NOTE);
   }
 
   const simplesCrt1Scenario: RegimeComparisonScenario = {
@@ -304,7 +349,7 @@ export function compareRegimes(
   // Reuses the deterministic Regime Regular calculation (rrOutput) per NT 2026.005 VSN-019.
   const hibridoObservacoes = [
     'NT 2026.005 (VSN-019): optante do Simples Nacional com tpRegimeIBSCBS=1 apura CBS e IBS fora do DAS, pelo Regime Regular.',
-    ...(hasAnyImpostoSeletivo ? [baseBridgeNote] : []),
+    ...(hasAnyImpostoSeletivo ? [BASE_BRIDGE_NOTE] : []),
     ...rrOutput.avisos,
   ];
 
@@ -328,14 +373,7 @@ export function compareRegimes(
   ];
 
   // 4. Optional Excesso de Sublimite (CRT=2 — CBS no Simples + IBS no Regime Regular)
-  if (input.incluirSublimiteCrt2) {
-    const snCrt2Input: OperacaoSimplesInput = {
-      ...snCrt1Input,
-      CRT: 2,
-      tpRegimeIBSCBS: null,
-    };
-    const snCrt2Output = sn.calculate(snCrt2Input);
-
+  if (snCrt2Output) {
     const subTotalIS = rrTotalIS;
     const subTotalCBS = snCrt2Output.totais.vCBSSN;
     const subTotalIBS = rrTotalIBS;
@@ -343,7 +381,7 @@ export function compareRegimes(
 
     const subObservacoes = [
       'CRT=2 (Excesso de Sublimite estadual): conforme RASN_IN_GERA_IBS=0 na NT 2026.005, a CBS é apurada pelo Simples Nacional e o IBS é apurado pelo Regime Regular.',
-      ...(hasAnyImpostoSeletivo ? [baseBridgeNote] : []),
+      ...(hasAnyImpostoSeletivo ? [BASE_BRIDGE_NOTE] : []),
       ...snCrt2Output.avisos,
       ...rrOutput.avisos,
     ];
@@ -372,4 +410,49 @@ export function compareRegimes(
     cenarios,
     avisos: [...new Set(avisos)],
   };
+}
+
+/**
+ * Deterministic side-by-side comparison between Regime Regular, Simples Nacional (CRT=1),
+ * Simples Híbrido (CRT=1, tpRegimeIBSCBS=1), and optional Excesso de Sublimite (CRT=2).
+ */
+export function compareRegimes(
+  input: CompareRegimesInput,
+  rr: RegimeRegularEngine,
+  sn: SimplesNacionalEngine,
+): CompareRegimesOutput {
+  const ineligible = checkCompareEligibility(input);
+  if (ineligible) {
+    return ineligible;
+  }
+
+  const rrOutput = rr.calculate(buildRegimeRegularCompareInput(input), 'observabilidade');
+  const prep = prepareAfterRegimeRegular(input, rrOutput);
+  const snCrt1Output = sn.calculate(prep.snCrt1Input);
+  const snCrt2Output = prep.snCrt2Input ? sn.calculate(prep.snCrt2Input) : null;
+
+  return finalizeCompareOutput(input, prep, snCrt1Output, snCrt2Output);
+}
+
+/**
+ * Async variant of `compareRegimes` used by `FiscalEngineRouter` to route each
+ * regime calculation independently across local or remote-official connectors.
+ */
+export async function compareRegimesAsync(
+  input: CompareRegimesInput,
+  calculators: CompareRegimesCalculators,
+): Promise<CompareRegimesOutput> {
+  const ineligible = checkCompareEligibility(input);
+  if (ineligible) {
+    return ineligible;
+  }
+
+  const rrOutput = await calculators.calculateRegimeRegular(buildRegimeRegularCompareInput(input));
+  const prep = prepareAfterRegimeRegular(input, rrOutput);
+  const snCrt1Output = await calculators.calculateSimplesNacional(prep.snCrt1Input);
+  const snCrt2Output = prep.snCrt2Input
+    ? await calculators.calculateSimplesNacional(prep.snCrt2Input)
+    : null;
+
+  return finalizeCompareOutput(input, prep, snCrt1Output, snCrt2Output);
 }
