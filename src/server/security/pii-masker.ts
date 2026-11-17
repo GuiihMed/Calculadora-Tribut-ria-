@@ -5,7 +5,10 @@ const CNPJ_RAW_RE = /\b\d{14}\b/g;
 const CPF_FORMATTED_RE = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g;
 const CPF_RAW_RE = /\b\d{11}\b/g;
 const EMAIL_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
-const PHONE_RE = /(?<!\d)(?:\+?55[\s-]*)?(?:\(?\d{2}\)?[\s-]*)?\d{4,5}-\d{4}(?!\d)/g;
+const PHONE_HYPHEN_RE =
+  /(?<!\d)(?:\+?55[ \t-]*)?(?:\(?[1-9]\d\)?[ \t-]*)?\d{4,5}-\d{4}(?!\d)/g;
+const PHONE_SPACED_RE =
+  /(?<!\d)(?:\+?55[ \t-]*(?:\(?[1-9]\d\)?[ \t-]+)?|\(?[1-9]\d\)?[ \t-]+)\d{4,5}[ \t]+\d{4}(?!\d)/g;
 
 const SENSITIVE_HEADER_TOKENS_RE =
   /(^|_)(cpf|cnpj|chave|destinatario|emitente|razao_social|nome|email|telefone|endereco|ie|im)(_|$)/;
@@ -49,7 +52,8 @@ export function maskFiscalPii(text: string): string {
     .replace(CPF_FORMATTED_RE, '[CPF-REDACTED]')
     .replace(CPF_RAW_RE, '[CPF-REDACTED]')
     .replace(EMAIL_RE, '[EMAIL-REDACTED]')
-    .replace(PHONE_RE, '[PHONE-REDACTED]');
+    .replace(PHONE_HYPHEN_RE, '[PHONE-REDACTED]')
+    .replace(PHONE_SPACED_RE, '[PHONE-REDACTED]');
 }
 
 export function maskSpreadsheetRowsForLlm(

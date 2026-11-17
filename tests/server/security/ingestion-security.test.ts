@@ -145,8 +145,8 @@ describe('Security Ingestion Pipeline (Review Focus #3)', () => {
         'CNPJ 12.345.678/0001-95 ou 12345678000195',
         'CPF 123.456.789-00 ou 12345678900',
         'Email fiscal@empresa-teste.com.br',
-        'Tel (11) 98765-4321 e +55 11 3333-4444',
-        'NCM 10063021 Valor 100.00',
+        'Tel (11) 98765-4321 e +55 11 3333-4444 e +55 11 98765 4321 e (11) 3333 4444',
+        'NCM 10063021 NBS 122011200 Valor 100.00',
       ].join(' | ');
 
       const masked = maskFiscalPii(input);
@@ -159,6 +159,8 @@ describe('Security Ingestion Pipeline (Review Focus #3)', () => {
       expect(masked).not.toContain('fiscal@empresa-teste.com.br');
       expect(masked).not.toContain('98765-4321');
       expect(masked).not.toContain('3333-4444');
+      expect(masked).not.toContain('98765 4321');
+      expect(masked).not.toContain('3333 4444');
 
       expect(masked).toContain('[CHAVE-ACESSO-REDACTED]');
       expect(masked).toContain('[CNPJ-REDACTED]');
@@ -166,7 +168,7 @@ describe('Security Ingestion Pipeline (Review Focus #3)', () => {
       expect(masked).toContain('[EMAIL-REDACTED]');
       expect(masked).toContain('[PHONE-REDACTED]');
       // Non-PII fiscal codes/values remain intact
-      expect(masked).toContain('NCM 10063021 Valor 100.00');
+      expect(masked).toContain('NCM 10063021 NBS 122011200 Valor 100.00');
     });
 
     it('masks sensitive spreadsheet columns by header name and masks inline PII in other columns', () => {
@@ -322,6 +324,22 @@ describe('Security Ingestion Pipeline (Review Focus #3)', () => {
       expect(parsed.message).toBeUndefined();
       expect(lines[0]).not.toContain('12345678000195');
       expect(lines[0]).not.toContain('segredo');
+    });
+
+    it('replaces non-ISO timestamp with a clean server ISO timestamp', () => {
+      const lines: string[] = [];
+      const logger = createZeroPiiLogger((line) => lines.push(line));
+      logger.warn({
+        timestamp: 'CNPJ 12.345.678/0001-95 leaked in timestamp',
+        request_id: generateRequestId(),
+        method: 'GET',
+        route: '/api/health',
+        status: 200,
+      });
+
+      const parsed = JSON.parse(lines[0]!) as Record<string, unknown>;
+      expect(String(parsed.timestamp)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(lines[0]).not.toContain('12.345.678/0001-95');
     });
   });
 });

@@ -158,6 +158,11 @@ describe('DF-e XML Parser, Spreadsheet Parser & Audit XLSX Exporter', () => {
       expect(draft.itens[0]!.baseCalculo).toBe('1500.00');
       expect(draft.itens[0]!.cst).toBe('200');
       expect(draft.itens[0]!.cClassTrib).toBe('200028');
+
+      const nfseMissingDate = nfseXml.replace('<dCompet>2027-04-01</dCompet>', '');
+      const draftNoDate = parseDfeXmlToDraft(nfseMissingDate, 'nfse-sem-data.xml');
+      expect(draftNoDate.requiresReview).toBe(true);
+      expect(draftNoDate.warnings.some((w) => /data/i.test(w))).toBe(true);
     });
   });
 
@@ -200,6 +205,81 @@ describe('DF-e XML Parser, Spreadsheet Parser & Audit XLSX Exporter', () => {
       expect(result.maskedSampleRows[0]!.Coluna_A).toBe("'=SUM(1,2)");
       expect(result.maskedSampleRows[0]!.Coluna_B).toContain('[CPF-REDACTED]');
       expect(result.maskedSampleRows[0]!.CNPJ_Cliente).not.toContain('12345678000195');
+    });
+
+    it('rejects malformed Central Directory, ZIP64 sentinels, and zip-bomb uncompressed sizes in XLSX', async () => {
+      // 1. Out-of-bounds cdOffset in EOCD
+      const badCdOffsetBuf = Buffer.alloc(64, 0);
+      badCdOffsetBuf.write('PK\x03\x04', 0, 'ascii');
+      const eocdOffset1 = 42;
+      badCdOffsetBuf.writeUInt32LE(0x06054b50, eocdOffset1);
+      badCdOffsetBuf.writeUInt16LE(1, eocdOffset1 + 8);
+      badCdOffsetBuf.writeUInt16LE(1, eocdOffset1 + 10);
+      badCdOffsetBuf.writeUInt32LE(46, eocdOffset1 + 12);
+      badCdOffsetBuf.writeUInt32LE(9999, eocdOffset1 + 16); // out of bounds
+
+      await expect(parseSpreadsheetToDraft(badCdOffsetBuf, 'xlsx', 'bad-offset.xlsx')).rejects.toThrow(
+        /diretório central/i,
+      );
+
+      // 2. cdOffset pointing to non-PK\x01\x02 bytes
+      const badCdSigBuf = Buffer.alloc(100, 0);
+      badCdSigBuf.write('PK\x03\x04', 0, 'ascii');
+      const eocdOffset2 = 78;
+      badCdSigBuf.writeUInt32LE(0x06054b50, eocdOffset2);
+      badCdSigBuf.writeUInt16LE(1, eocdOffset2 + 8);
+      badCdSigBuf.writeUInt16LE(1, eocdOffset2 + 10);
+      badCdSigBuf.writeUInt32LE(46, eocdOffset2 + 12);
+      badCdSigBuf.writeUInt32LE(10, eocdOffset2 + 16); // points to zeros instead of PK\x01\x02
+
+      await expect(parseSpreadsheetToDraft(badCdSigBuf, 'xlsx', 'bad-sig.xlsx')).rejects.toThrow(
+        /assinatura de diretório central/i,
+      );
+
+      // 3. ZIP64 sentinel in EOCD (totalEntries === 0xffff)
+      const zip64EocdBuf = Buffer.alloc(64, 0);
+      zip64EocdBuf.write('PK\x03\x04', 0, 'ascii');
+      const eocdOffset3 = 42;
+      zip64EocdBuf.writeUInt32LE(0x06054b50, eocdOffset3);
+      zip64EocdBuf.writeUInt16LE(0xffff, eocdOffset3 + 10);
+
+      await expect(parseSpreadsheetToDraft(zip64EocdBuf, 'xlsx', 'zip64.xlsx')).rejects.toThrow(
+        /ZIP64/i,
+      );
+
+      // 4. ZIP64 sentinel in Central Directory entry (uncompressedSize === 0xffffffff)
+      const zip64EntryBuf = Buffer.alloc(120, 0);
+      zip64EntryBuf.write('PK\x03\x04', 0, 'ascii');
+      const cdOffset4 = 30;
+      zip64EntryBuf.writeUInt32LE(0x02014b50, cdOffset4);
+      zip64EntryBuf.writeUInt32LE(0xffffffff, cdOffset4 + 24);
+      const eocdOffset4 = 98;
+      zip64EntryBuf.writeUInt32LE(0x06054b50, eocdOffset4);
+      zip64EntryBuf.writeUInt16LE(1, eocdOffset4 + 8);
+      zip64EntryBuf.writeUInt16LE(1, eocdOffset4 + 10);
+      zip64EntryBuf.writeUInt32LE(46, eocdOffset4 + 12);
+      zip64EntryBuf.writeUInt32LE(cdOffset4, eocdOffset4 + 16);
+
+      await expect(parseSpreadsheetToDraft(zip64EntryBuf, 'xlsx', 'zip64-entry.xlsx')).rejects.toThrow(
+        /ZIP64/i,
+      );
+
+      // 5. Zip-bomb (> 50 MiB uncompressed size)
+      const zipBombBuf = Buffer.alloc(120, 0);
+      zipBombBuf.write('PK\x03\x04', 0, 'ascii');
+      const cdOffset5 = 30;
+      zipBombBuf.writeUInt32LE(0x02014b50, cdOffset5);
+      zipBombBuf.writeUInt32LE(60 * 1024 * 1024, cdOffset5 + 24);
+      const eocdOffset5 = 98;
+      zipBombBuf.writeUInt32LE(0x06054b50, eocdOffset5);
+      zipBombBuf.writeUInt16LE(1, eocdOffset5 + 8);
+      zipBombBuf.writeUInt16LE(1, eocdOffset5 + 10);
+      zipBombBuf.writeUInt32LE(46, eocdOffset5 + 12);
+      zipBombBuf.writeUInt32LE(cdOffset5, eocdOffset5 + 16);
+
+      await expect(parseSpreadsheetToDraft(zipBombBuf, 'xlsx', 'bomb.xlsx')).rejects.toThrow(
+        /50 MiB/i,
+      );
     });
   });
 

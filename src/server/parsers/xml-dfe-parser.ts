@@ -135,7 +135,8 @@ function parseNfeDraft(infNFe: XmlNode, filename: string): ExtractionDraft {
     const vOutro = firstText(prod?.vOutro);
     const vDesc = firstText(prod?.vDesc);
     const quantidade = firstText(prod?.qCom, prod?.qTrib);
-    const unidade = firstText(prod?.uCom, prod?.uTrib);
+    const rawUnidade = firstText(prod?.uCom, prod?.uTrib);
+    const unidade = rawUnidade ? sanitizeSpreadsheetCell(rawUnidade) : undefined;
 
     const vICMS = firstText(icmsGroup?.vICMS);
     const vPIS = firstText(pisGroup?.vPIS);
@@ -288,6 +289,11 @@ function parseNfseDraft(infNFSe: XmlNode, filename: string): ExtractionDraft {
   const confidence: Record<string, FieldConfidence> = {};
   const missingFields: string[] = [];
   let requiresReview = !dhFatoGerador;
+  if (!dhFatoGerador) {
+    warnings.push(
+      'Data de competência/emissão (dCompet/dhEmi) não encontrada no XML da NFS-e; informe a data do fato gerador.',
+    );
+  }
 
   const mark = (field: string, value: string | undefined, required = false) => {
     if (value !== undefined) {

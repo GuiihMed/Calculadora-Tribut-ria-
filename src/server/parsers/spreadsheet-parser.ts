@@ -74,31 +74,44 @@ function assertSafeXlsxZip(buffer: Buffer): void {
     }
   }
   if (eocdOffset === -1) {
-    return; // Let exceljs validate structural ZIP errors if malformed
+    throw new Error('Planilha XLSX inválida: End of Central Directory (EOCD) ausente.');
   }
 
+  const diskEntries = buffer.readUInt16LE(eocdOffset + 8);
   const totalEntries = buffer.readUInt16LE(eocdOffset + 10);
+  const cdSize = buffer.readUInt32LE(eocdOffset + 12);
+  const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
+
+  if (
+    diskEntries === 0xffff ||
+    totalEntries === 0xffff ||
+    cdSize === 0xffffffff ||
+    cdOffset === 0xffffffff
+  ) {
+    throw new Error('Planilha XLSX em formato ZIP64 não é permitida (proteção anti-zip-bomb).');
+  }
   if (totalEntries > MAX_XLSX_ENTRIES) {
     throw new Error('Planilha XLSX excede o limite máximo de entradas ZIP (proteção anti-zip-bomb).');
   }
+  if (cdOffset >= buffer.byteLength || (totalEntries > 0 && cdOffset + 46 > buffer.byteLength)) {
+    throw new Error('Planilha XLSX com deslocamento de diretório central ZIP fora dos limites.');
+  }
 
-  const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
   let cursor = cdOffset;
   let totalUncompressed = 0;
 
   for (let entry = 0; entry < totalEntries; entry++) {
     if (cursor + 46 > buffer.byteLength) {
-      break;
+      throw new Error('Planilha XLSX com diretório central ZIP truncado.');
     }
-    if (
-      buffer[cursor] !== 0x50 ||
-      buffer[cursor + 1] !== 0x4b ||
-      buffer[cursor + 2] !== 0x01 ||
-      buffer[cursor + 3] !== 0x02
-    ) {
-      break;
+    if (buffer.readUInt32LE(cursor) !== 0x02014b50) {
+      throw new Error('Planilha XLSX com assinatura de diretório central ZIP inválida.');
     }
+    const compressedSize = buffer.readUInt32LE(cursor + 20);
     const uncompressedSize = buffer.readUInt32LE(cursor + 24);
+    if (compressedSize === 0xffffffff || uncompressedSize === 0xffffffff) {
+      throw new Error('Entrada ZIP64 não é permitida em planilhas XLSX (proteção anti-zip-bomb).');
+    }
     totalUncompressed += uncompressedSize;
     if (totalUncompressed > MAX_XLSX_UNCOMPRESSED_BYTES) {
       throw new Error('Planilha XLSX excede o limite de descompressão de 50 MiB (proteção anti-zip-bomb).');

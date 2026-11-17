@@ -48,11 +48,21 @@ function sanitizeOptionalNumber(val: unknown): number | undefined {
   return val;
 }
 
+const ISO_TIMESTAMP_RE =
+  /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+function sanitizeTimestamp(val: unknown): string {
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (ISO_TIMESTAMP_RE.test(trimmed) && !Number.isNaN(Date.parse(trimmed))) {
+      return trimmed;
+    }
+  }
+  return new Date().toISOString();
+}
+
 function buildSanitizedRecord(level: LogLevel, entry: ZeroPiiLogEntry): Record<string, unknown> {
-  const timestamp =
-    typeof entry.timestamp === 'string' && entry.timestamp.trim().length > 0
-      ? entry.timestamp.trim()
-      : new Date().toISOString();
+  const timestamp = sanitizeTimestamp(entry.timestamp);
 
   const record: Record<string, unknown> = {
     level,
