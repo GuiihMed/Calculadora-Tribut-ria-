@@ -9,6 +9,7 @@ export const EstadoItemSchema = z.enum([
   'CALCULO_SIMULADO',
   'INCONSISTENCIA_ENTRADA',
   'NAO_IMPLEMENTADO',
+  'NAO_CALCULADO',
   'FALHA_TECNICA',
 ]);
 export type EstadoItem = z.infer<typeof EstadoItemSchema>;
@@ -299,6 +300,9 @@ export interface ObservabilidadeSimplesItemOutput {
   cAtivSN: string;
   cClassTrib: string;
   modoFatorR: ModoFatorR;
+  vRBSNitem?: string;
+  tpRBSN?: number;
+  tpRBSNDescricao?: string;
   vBC: string;
   pIBSSN: string | null;
   pCBSSN: string | null;
