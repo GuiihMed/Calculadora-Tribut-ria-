@@ -147,11 +147,19 @@ export function registerUploadRoutes(app: FastifyInstance, deps: UploadRoutesDep
         }
 
         if (validated.extension === 'xlsx' || validated.extension === 'csv') {
-          const parsed = await parseSpreadsheetToDraft(
-            validated.buffer,
-            validated.extension,
-            validated.sanitizedFilename,
-          );
+          let parsed: Awaited<ReturnType<typeof parseSpreadsheetToDraft>>;
+          try {
+            parsed = await parseSpreadsheetToDraft(
+              validated.buffer,
+              validated.extension,
+              validated.sanitizedFilename,
+            );
+          } catch (err) {
+            return reply.code(400).send({
+              code: 'INVALID_SPREADSHEET',
+              message: err instanceof Error ? err.message : 'Planilha inválida.',
+            });
+          }
 
           const draftToSave: ExtractionDraft = {
             ...parsed.draft,

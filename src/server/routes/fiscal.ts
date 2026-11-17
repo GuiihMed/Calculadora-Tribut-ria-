@@ -174,9 +174,8 @@ export function registerFiscalRoutes(app: FastifyInstance, deps: FiscalRoutesDep
 
     const isNfse =
       envelope.modelo === 'nfse' ||
-      'ehLocacao' in rawInput ||
-      'isMei' in rawInput ||
-      'vDescIncond' in rawInput;
+      (envelope.modelo !== 'nfe' &&
+        ('ehLocacao' in rawInput || 'isMei' in rawInput || 'vDescIncond' in rawInput));
 
     if (isNfse) {
       const parsed = BaseCalculoUnificadaNfseInputSchema.parse(rawInput);

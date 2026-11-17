@@ -365,6 +365,25 @@ describe('Fastify BFF HTTP Server & API Routes', () => {
       });
       expect(exeRes.statusCode).toBe(415);
       expect(exeRes.json().code).toBe('UNSUPPORTED_FILE_TYPE');
+
+      // 5. Malformed .xlsx (valid PK\x03\x04 prefix, missing/corrupted EOCD)
+      const corruptXlsx = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00, 0x00, 0x00, 0x08, 0x00]);
+      const corruptXlsxForm = buildMultipartPayload([
+        {
+          name: 'file',
+          filename: 'corrupt.xlsx',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          data: corruptXlsx,
+        },
+      ]);
+      const corruptXlsxRes = await app.inject({
+        method: 'POST',
+        url: '/api/upload',
+        headers: { 'content-type': corruptXlsxForm.contentType },
+        payload: corruptXlsxForm.payload,
+      });
+      expect(corruptXlsxRes.statusCode).toBe(400);
+      expect(corruptXlsxRes.json().code).toBe('INVALID_SPREADSHEET');
     });
 
     it('accepts valid .csv and .xml files, creates ExtractionDrafts in workspace.db, allows draft editing, and masks PII in attachmentSummary', async () => {
@@ -485,6 +504,42 @@ describe('Fastify BFF HTTP Server & API Routes', () => {
       expect(r2.statusCode).toBe(200);
       expect(r3.statusCode).toBe(429);
     });
+
+    it('returns JSON directly when stream is false on POST /api/chat', async () => {
+      const mockClient: InteractionsClient = {
+        interactions: {
+          create: vi.fn<InteractionsClient['interactions']['create']>().mockResolvedValue({
+            id: 'int-json',
+            status: 'completed',
+            output_text: 'Resposta síncrona em JSON.',
+            steps: [
+              {
+                type: 'model_output',
+                content: [{ type: 'text', text: 'Resposta síncrona em JSON.' }],
+              },
+            ],
+          } satisfies InteractionResponse),
+        },
+      };
+
+      const { app } = await createTestHarness({ geminiClient: mockClient });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          message: 'Resumo rápido sem streaming.',
+          stream: false,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toContain('application/json');
+      const body = res.json();
+      expect(body.sessionId).toBeTruthy();
+      expect(body.turn.content).toBe('Resposta síncrona em JSON.');
+      expect(body.events.some((ev: { type: string }) => ev.type === 'done')).toBe(true);
+    });
   });
 
   describe('POST /api/fiscal/* (Deterministic Calculation & Fail-Closed Recovery)', () => {
@@ -535,6 +590,42 @@ describe('Fastify BFF HTTP Server & API Routes', () => {
       });
       expect(getRunRes.statusCode).toBe(200);
       expect(getRunRes.json().snapshot.id).toBe(body.calcRunId);
+    });
+
+    it('calculates Simples Nacional deterministically via POST /api/fiscal/calculate', async () => {
+      const { app, store } = await createTestHarness();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/fiscal/calculate',
+        payload: {
+          regime: 'simples-nacional',
+          input: {
+            dhFatoGerador: '2027-03-10',
+            tpDoc: 55,
+            CRT: 1,
+            itens: [
+              {
+                nObj: 1,
+                cAtivSN: '01',
+                cClassTrib: '000001',
+                baseCalculo: 1000,
+                pIBSSN: 0.5,
+                pCBSSN: 1.2,
+              },
+            ],
+          },
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.calcRunId).toBeTruthy();
+      expect(body.snapshot.kind).toBe('simples_nacional');
+      expect(body.snapshot.output.itens[0].estadoItem).toBe('CALCULADO');
+      expect(body.snapshot.output.totais.vIBSSN).toBe('5.00');
+      expect(body.snapshot.output.totais.vCBSSN).toBe('12.00');
+      expect(store.getCalcRun(body.calcRunId)).not.toBeNull();
     });
 
     it('returns 503 with canForceLocal: true on RemoteEngineUnavailableError and recovers with forceLocal: true', async () => {
@@ -722,6 +813,17 @@ describe('Fastify BFF HTTP Server & API Routes', () => {
       expect(jsonRes.statusCode).toBe(200);
       expect(jsonRes.headers['content-type']).toContain('application/json');
       expect(jsonRes.json().id).toBe(calcRunId);
+
+      // 5. DANFSe XXE rejection (400)
+      const danfseXxeRes = await app.inject({
+        method: 'POST',
+        url: '/api/export/danfse',
+        payload: {
+          xml: '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><NFSe><infNFSe>&xxe;</infNFSe></NFSe>',
+        },
+      });
+      expect(danfseXxeRes.statusCode).toBe(400);
+      expect(danfseXxeRes.json().code).toBe('XXE_REJECTED');
     });
   });
 });
