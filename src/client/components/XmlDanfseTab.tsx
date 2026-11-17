@@ -161,6 +161,7 @@ export function XmlDanfseTab({
     setGeneration(null);
     setValidation(null);
     setXmlError(null);
+    setRemoteFailure((prev) => (prev?.target === 'xml' ? null : prev));
   }, [snapshot?.id]);
 
   useEffect(() => {
@@ -255,15 +256,10 @@ export function XmlDanfseTab({
           ? URL.createObjectURL(res.blob)
           : '#danfse-pdf';
 
-      setDanfseResult((prev) => {
-        if (prev?.pdfUrl && typeof URL.revokeObjectURL === 'function') {
-          URL.revokeObjectURL(prev.pdfUrl);
-        }
-        return {
-          pdfUrl,
-          engineMode: res.engineMode,
-          isLocalPreview: res.isLocalPreview,
-        };
+      setDanfseResult({
+        pdfUrl,
+        engineMode: res.engineMode,
+        isLocalPreview: res.isLocalPreview,
       });
       setRemoteFailure(null);
     } catch (err) {

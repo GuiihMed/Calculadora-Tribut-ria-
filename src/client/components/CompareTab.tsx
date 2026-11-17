@@ -169,6 +169,48 @@ export function CompareTab({
     }
   }, [activeContext.dhFatoGerador]);
 
+  useEffect(() => {
+    setLocalCompareSnapshot((prev) =>
+      prev && prev.id === snapshot?.id ? prev : null,
+    );
+  }, [snapshot?.id]);
+
+  useEffect(() => {
+    const item = draft?.itens?.[0];
+    setBaseCalculo(item?.baseCalculo ?? '1000.00');
+    setCst(item?.cst ?? '000');
+    setCClassTrib(item?.cClassTrib?.trim() || '000001');
+    setCAtivSN(item?.cAtivSN?.trim() || '11');
+    setNcm(item?.ncm ?? '');
+    setNbs(item?.nbs ?? '');
+    setPCBS(
+      item?.aliquotasNominais?.pCBS !== undefined
+        ? String(item.aliquotasNominais.pCBS)
+        : '',
+    );
+    setPIBSUF(
+      item?.aliquotasNominais?.pIBSUF !== undefined
+        ? String(item.aliquotasNominais.pIBSUF)
+        : '',
+    );
+    setPIBSMun(
+      item?.aliquotasNominais?.pIBSMun !== undefined
+        ? String(item.aliquotasNominais.pIBSMun)
+        : '',
+    );
+    setPIBSSN(item?.pIBSSN ?? '');
+    setPCBSSN(item?.pCBSSN ?? '');
+    setIsValorInformado(item?.vIS ?? '');
+    setIsAliquotaAdValorem('');
+    setBuVProd(item?.vProd ?? item?.baseCalculo ?? '1000.00');
+    setBuVFrete(item?.vFrete ?? '0.00');
+    setBuVDesc(item?.vDesc ?? '0.00');
+    setBuVPIS(item?.vPIS ?? '16.50');
+    setBuVCOFINS(item?.vCOFINS ?? '76.00');
+    setBuVICMS(item?.vICMS ?? '180.00');
+    setBuVIS(item?.vIS ?? '20.00');
+  }, [draft?.id]);
+
   const effectiveCompareSnapshot =
     localCompareSnapshot ??
     (snapshot?.kind === 'comparativo' ? snapshot : null);
@@ -968,7 +1010,9 @@ export function CompareTab({
           <div className="staging-grid">
             <div className="staging-field">
               <label htmlFor="bu-vprod">
-                {buNatureza === 'bem' ? 'vProd (R$)' : 'vServ (R$)'}
+                {activeContext.tipoDfe === 'NFSE' || buNatureza === 'servico'
+                  ? 'vServ (R$)'
+                  : 'vProd (R$)'}
               </label>
               <input
                 id="bu-vprod"
@@ -1006,7 +1050,9 @@ export function CompareTab({
 
             <div className="staging-field">
               <label htmlFor="bu-vicms">
-                {buNatureza === 'bem' ? 'vICMS (R$)' : 'vISS (R$)'}
+                {activeContext.tipoDfe === 'NFSE' || buNatureza === 'servico'
+                  ? 'vISS (R$)'
+                  : 'vICMS / vISS (R$)'}
               </label>
               <input
                 id="bu-vicms"

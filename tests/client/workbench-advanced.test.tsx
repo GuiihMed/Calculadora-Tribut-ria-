@@ -722,4 +722,125 @@ describe('Task 13 Frontend Workbench — CompareTab, MemoryLegalTab & XmlDanfseT
 
     expect(screen.getByText(/XML RTC \(NF-e \/ NFC-e\) & DANFSe/i)).toBeInTheDocument();
   });
+
+  it('syncs CompareTab on snapshot?.id / draft?.id changes, shows vISS label for NFSE, and clears XmlDanfseTab remoteFailure on snapshot change', async () => {
+    const newDraft: ExtractionDraft = {
+      ...DRAFT_WITHOUT_RATES,
+      id: 'draft-cmp-2',
+      itens: [
+        {
+          nObj: 1,
+          descricao: 'Serviço novo draft',
+          nbs: '1.1301.10.00',
+          cst: '200',
+          cClassTrib: '200003',
+          cAtivSN: '21',
+          baseCalculo: '2500.00',
+          aliquotasNominais: { pCBS: '3.52', pIBSUF: '7.08', pIBSMun: '0.00' },
+          pIBSSN: '1.20',
+          pCBSSN: '2.10',
+          confidence: { baseCalculo: 'high' },
+          missingFields: [],
+        },
+      ],
+    };
+
+    const secondCompareSnapshot: CalcRunSnapshot = {
+      ...COMPARE_SNAPSHOT,
+      id: 'run-cmp-history-2',
+      output: {
+        ...COMPARE_OUTPUT,
+        cenarios: [
+          {
+            ...COMPARE_OUTPUT.cenarios[0]!,
+            totalTributos: '999.99',
+          },
+        ],
+      },
+    };
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/fiscal/compare') {
+          return new Response(
+            JSON.stringify({ calcRunId: COMPARE_SNAPSHOT.id, snapshot: COMPARE_SNAPSHOT }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url === '/api/export/xml') {
+          return new Response(
+            JSON.stringify({
+              code: 'REMOTE_ENGINE_UNAVAILABLE',
+              capability: 'regimeRegular',
+              message: 'Serviço remoto indisponível para XML.',
+              canForceLocal: true,
+            }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        return new Response('{}', { status: 404 });
+      }),
+    );
+
+    const { rerender } = render(
+      <CompareTab
+        snapshot={COMPARE_SNAPSHOT}
+        draft={DRAFT_WITHOUT_RATES}
+        activeContext={{ ...CONTEXT_2027, tipoDfe: 'NFSE' }}
+        sessionId="sess-cmp"
+        onSnapshotCreated={vi.fn()}
+      />,
+    );
+
+    // 1. NFSE context shows vISS (R$) label for Base Unificada tax field
+    expect(screen.getByLabelText('vISS (R$)')).toBeInTheDocument();
+
+    // 2. Run local comparison so localCompareSnapshot is set, then switch snapshot?.id via HistoryDialog prop
+    fireEvent.change(screen.getByLabelText(/Alíquota Nominal CBS/i), { target: { value: '8.80' } });
+    fireEvent.change(screen.getByLabelText(/Alíquota Nominal IBS UF/i), { target: { value: '17.70' } });
+    fireEvent.change(screen.getByLabelText(/Alíquota Nominal IBS Mun/i), { target: { value: '0.00' } });
+    fireEvent.change(screen.getByLabelText(/pIBSSN/i), { target: { value: '1.50' } });
+    fireEvent.change(screen.getByLabelText(/pCBSSN/i), { target: { value: '2.50' } });
+    fireEvent.click(screen.getByRole('button', { name: /Executar Comparativo/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('290.30').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Now switch snapshot?.id and draft?.id
+    rerender(
+      <CompareTab
+        snapshot={secondCompareSnapshot}
+        draft={newDraft}
+        activeContext={CONTEXT_2027}
+        sessionId="sess-cmp"
+        onSnapshotCreated={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('999.99').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByLabelText(/Base de Cálculo \(sem IS\)/i)).toHaveValue('2500.00');
+    expect(screen.getByLabelText(/Alíquota Nominal CBS/i)).toHaveValue('3.52');
+    expect(screen.getByLabelText(/pIBSSN/i)).toHaveValue('1.20');
+    expect(screen.getByLabelText('vICMS / vISS (R$)')).toBeInTheDocument();
+
+    // 3. XmlDanfseTab clears XML remoteFailure when snapshot?.id changes
+    rerender(
+      <XmlDanfseTab snapshot={REGULAR_MEMORY_SNAPSHOT} activeContext={CONTEXT_2027} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Gerar & Validar XML RTC/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Serviço remoto indisponível para XML/i)).toBeInTheDocument();
+    });
+
+    rerender(
+      <XmlDanfseTab
+        snapshot={{ ...REGULAR_MEMORY_SNAPSHOT, id: 'run-reg-mem-2' }}
+        activeContext={CONTEXT_2027}
+      />,
+    );
+    expect(screen.queryByText(/Serviço remoto indisponível para XML/i)).not.toBeInTheDocument();
+  });
 });
