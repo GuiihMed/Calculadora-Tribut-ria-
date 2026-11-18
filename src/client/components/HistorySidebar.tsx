@@ -1,4 +1,4 @@
-import { Calculator, Clock, Plus, X } from 'lucide-react';
+import { Calculator, Clock, MessageSquare, PanelLeftClose, SquarePen } from 'lucide-react';
 import type { CalcRunSnapshot, WorkspaceSession } from '../../shared/types/fiscal';
 
 export interface HistorySidebarProps {
@@ -55,38 +55,36 @@ export function HistorySidebar({
   }
 
   return (
-    <aside className="history-sidebar" aria-label="Histórico de sessões e cálculos">
+    <aside className="history-sidebar" aria-label="Histórico de conversas e cálculos">
       <div className="history-sidebar__header">
-        <h2 className="history-sidebar__title">Histórico</h2>
-        <button
-          type="button"
-          className="history-sidebar__close"
-          aria-label="Recolher histórico"
-          onClick={onClose}
-        >
-          <X size={15} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="history-sidebar__top-action">
         <button
           type="button"
           className="history-sidebar__new-btn"
           onClick={onNewSession}
         >
-          <Plus size={14} aria-hidden="true" />
-          <span>Nova Sessão</span>
+          <SquarePen size={15} aria-hidden="true" />
+          <span>Nova conversa</span>
+        </button>
+
+        <button
+          type="button"
+          className="history-sidebar__close"
+          aria-label="Recolher barra lateral"
+          title="Recolher histórico"
+          onClick={onClose}
+        >
+          <PanelLeftClose size={16} aria-hidden="true" />
         </button>
       </div>
 
       <div className="history-sidebar__scroll">
-        <section className="history-sidebar__section" aria-label="Sessões salvas">
+        <section className="history-sidebar__section" aria-label="Conversas recentes">
           <p className="history-sidebar__section-label">
-            Sessões ({sessions.length})
+            Recentes
           </p>
           {sessions.length === 0 ? (
             <p className="history-sidebar__empty">
-              Nenhuma sessão salva ainda.
+              Nenhuma conversa salva ainda.
             </p>
           ) : (
             <ul className="history-sidebar__list">
@@ -104,7 +102,10 @@ export function HistorySidebar({
                       onClick={() => onSelectSession(session.id)}
                     >
                       <span className="history-sidebar__item-title">
-                        {session.title || 'Simulação sem título'}
+                        <MessageSquare size={14} className="history-sidebar__item-icon" aria-hidden="true" />
+                        <span className="history-sidebar__item-text">
+                          {session.title || 'Simulação sem título'}
+                        </span>
                       </span>
                       <span className="history-sidebar__item-meta tabular-nums">
                         {regimeLabel} &bull; {formatShortDatePtBr(session.updatedAt)}
@@ -118,9 +119,9 @@ export function HistorySidebar({
         </section>
 
         {calcRuns.length > 0 && (
-          <section className="history-sidebar__section" aria-label="Cálculos da sessão">
+          <section className="history-sidebar__section" aria-label="Cálculos da conversa">
             <p className="history-sidebar__section-label">
-              Cálculos da Sessão ({calcRuns.length})
+              Cálculos ({calcRuns.length})
             </p>
             <ul className="history-sidebar__list">
               {calcRuns.map((run) => {
@@ -133,8 +134,8 @@ export function HistorySidebar({
                       onClick={() => onSelectSnapshot(run)}
                     >
                       <span className="history-sidebar__item-title">
-                        <Calculator size={12} aria-hidden="true" />
-                        <span>{KIND_LABELS[run.kind]}</span>
+                        <Calculator size={13} className="history-sidebar__item-icon" aria-hidden="true" />
+                        <span className="history-sidebar__item-text">{KIND_LABELS[run.kind]}</span>
                       </span>
                       <span className="history-sidebar__item-meta tabular-nums">
                         <Clock size={11} aria-hidden="true" />

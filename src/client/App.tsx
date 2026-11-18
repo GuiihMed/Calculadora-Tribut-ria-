@@ -203,7 +203,28 @@ export function App() {
       </nav>
 
       <main className={`split-workspace ${historyOpen ? 'split-workspace--with-history' : ''}`}>
-        {/* Left Pane: Copiloto Fiscal (Chat Gemini) */}
+        {/* Left Sidebar: Histórico estilo Gemini */}
+        <HistorySidebar
+          open={historyOpen}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          calcRuns={sessionCalcRuns}
+          activeCalcRunId={activeSnapshot?.id ?? null}
+          onClose={() => setHistoryOpen(false)}
+          onNewSession={() => {
+            void handleNewSession();
+          }}
+          onSelectSession={(sessionId) => {
+            void loadSessionById(sessionId);
+          }}
+          onSelectSnapshot={(snapshot) => {
+            setActiveSnapshot(snapshot);
+            setActiveWorkbenchTab(snapshot.kind === 'comparativo' ? 'compare' : 'results');
+            setMobilePane('workbench');
+          }}
+        />
+
+        {/* Center Pane: Copiloto Fiscal (Chat Gemini) */}
         <section
           aria-label="Copiloto Fiscal Gemini"
           className={`pane-chat ${mobilePane !== 'chat' ? 'pane-hidden-mobile' : ''}`}
@@ -277,27 +298,6 @@ export function App() {
             }}
           />
         </section>
-
-        {/* Collapsible History Sidebar */}
-        <HistorySidebar
-          open={historyOpen}
-          sessions={sessions}
-          activeSessionId={activeSessionId}
-          calcRuns={sessionCalcRuns}
-          activeCalcRunId={activeSnapshot?.id ?? null}
-          onClose={() => setHistoryOpen(false)}
-          onNewSession={() => {
-            void handleNewSession();
-          }}
-          onSelectSession={(sessionId) => {
-            void loadSessionById(sessionId);
-          }}
-          onSelectSnapshot={(snapshot) => {
-            setActiveSnapshot(snapshot);
-            setActiveWorkbenchTab(snapshot.kind === 'comparativo' ? 'compare' : 'results');
-            setMobilePane('workbench');
-          }}
-        />
       </main>
     </div>
   );
