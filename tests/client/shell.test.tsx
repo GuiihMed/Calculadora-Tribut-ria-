@@ -93,11 +93,9 @@ describe('Task 10 Frontend Shell & API Client', () => {
     );
 
     expect(screen.getByText(/Copiloto Fiscal & Calculadora RTC/i)).toBeInTheDocument();
-    expect(screen.getByText('Regime Regular:')).toBeInTheDocument();
-    expect(screen.getByText('Simples Nacional:')).toBeInTheDocument();
-    expect(screen.getByText('DANFSe:')).toBeInTheDocument();
-    expect(screen.getAllByText('Motor Local (TS)')).toHaveLength(2);
-    expect(screen.getByText('Oficial RFB (Remoto)')).toBeInTheDocument();
+    expect(screen.getByText('Regime Regular')).toBeInTheDocument();
+    expect(screen.getByText('Simples Nacional')).toBeInTheDocument();
+    expect(screen.getByText('DANFSe')).toBeInTheDocument();
   });
 
   it('renders native HistoryDialog with aria-labelledby and without role="dialog" or aria-modal', () => {

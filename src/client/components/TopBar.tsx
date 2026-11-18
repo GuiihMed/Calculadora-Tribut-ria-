@@ -62,8 +62,7 @@ export function TopBar({
               title={tooltip}
             >
               <span className="engine-badge__dot" aria-hidden="true" />
-              <span>{title}:</span>
-              <span className="engine-badge__mode">{modeLabel}</span>
+              <span>{title}</span>
             </span>
           );
         })}
