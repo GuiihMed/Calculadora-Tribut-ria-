@@ -253,7 +253,7 @@ export function ContextBar({ context, onContextPatch }: ContextBarProps) {
         title={transitionBadge.detail}
       >
         <strong>{transitionBadge.label}</strong>
-        <span>&bull; {transitionBadge.detail}</span>
+        <span className="sr-only">&bull; {transitionBadge.detail}</span>
       </span>
     </div>
   );

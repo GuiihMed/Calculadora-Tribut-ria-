@@ -98,14 +98,14 @@ export function CompareTab({
     activeContext.dhFatoGerador ?? '2026-07-01',
   );
   const [baseCalculo, setBaseCalculo] = useState<string>(
-    firstDraftItem?.baseCalculo ?? '1000.00',
+    firstDraftItem?.baseCalculo ?? '',
   );
-  const [cst, setCst] = useState<string>(firstDraftItem?.cst ?? '000');
+  const [cst, setCst] = useState<string>(firstDraftItem?.cst ?? '');
   const [cClassTrib, setCClassTrib] = useState<string>(
-    firstDraftItem?.cClassTrib?.trim() || '000001',
+    firstDraftItem?.cClassTrib?.trim() ?? '',
   );
   const [cAtivSN, setCAtivSN] = useState<string>(
-    firstDraftItem?.cAtivSN?.trim() || '11',
+    firstDraftItem?.cAtivSN?.trim() ?? '',
   );
   const [ncm, setNcm] = useState<string>(firstDraftItem?.ncm ?? '');
   const [nbs, setNbs] = useState<string>(firstDraftItem?.nbs ?? '');
@@ -151,14 +151,14 @@ export function CompareTab({
   // Base Unificada Yearly Comparison (2026 x 2027 x 2033)
   const [buNatureza, setBuNatureza] = useState<'bem' | 'servico'>('bem');
   const [buVProd, setBuVProd] = useState<string>(
-    firstDraftItem?.vProd ?? firstDraftItem?.baseCalculo ?? '1000.00',
+    firstDraftItem?.vProd ?? firstDraftItem?.baseCalculo ?? '',
   );
-  const [buVFrete, setBuVFrete] = useState<string>(firstDraftItem?.vFrete ?? '0.00');
-  const [buVDesc, setBuVDesc] = useState<string>(firstDraftItem?.vDesc ?? '0.00');
-  const [buVPIS, setBuVPIS] = useState<string>(firstDraftItem?.vPIS ?? '16.50');
-  const [buVCOFINS, setBuVCOFINS] = useState<string>(firstDraftItem?.vCOFINS ?? '76.00');
-  const [buVICMS, setBuVICMS] = useState<string>(firstDraftItem?.vICMS ?? '180.00');
-  const [buVIS, setBuVIS] = useState<string>(firstDraftItem?.vIS ?? '20.00');
+  const [buVFrete, setBuVFrete] = useState<string>(firstDraftItem?.vFrete ?? '');
+  const [buVDesc, setBuVDesc] = useState<string>(firstDraftItem?.vDesc ?? '');
+  const [buVPIS, setBuVPIS] = useState<string>(firstDraftItem?.vPIS ?? '');
+  const [buVCOFINS, setBuVCOFINS] = useState<string>(firstDraftItem?.vCOFINS ?? '');
+  const [buVICMS, setBuVICMS] = useState<string>(firstDraftItem?.vICMS ?? '');
+  const [buVIS, setBuVIS] = useState<string>(firstDraftItem?.vIS ?? '');
   const [buRows, setBuRows] = useState<YearlyBaseRow[]>([]);
   const [buLoading, setBuLoading] = useState<boolean>(false);
   const [buError, setBuError] = useState<string | null>(null);
@@ -177,10 +177,10 @@ export function CompareTab({
 
   useEffect(() => {
     const item = draft?.itens?.[0];
-    setBaseCalculo(item?.baseCalculo ?? '1000.00');
-    setCst(item?.cst ?? '000');
-    setCClassTrib(item?.cClassTrib?.trim() || '000001');
-    setCAtivSN(item?.cAtivSN?.trim() || '11');
+    setBaseCalculo(item?.baseCalculo ?? '');
+    setCst(item?.cst ?? '');
+    setCClassTrib(item?.cClassTrib?.trim() ?? '');
+    setCAtivSN(item?.cAtivSN?.trim() ?? '');
     setNcm(item?.ncm ?? '');
     setNbs(item?.nbs ?? '');
     setPCBS(
@@ -202,13 +202,13 @@ export function CompareTab({
     setPCBSSN(item?.pCBSSN ?? '');
     setIsValorInformado(item?.vIS ?? '');
     setIsAliquotaAdValorem('');
-    setBuVProd(item?.vProd ?? item?.baseCalculo ?? '1000.00');
-    setBuVFrete(item?.vFrete ?? '0.00');
-    setBuVDesc(item?.vDesc ?? '0.00');
-    setBuVPIS(item?.vPIS ?? '16.50');
-    setBuVCOFINS(item?.vCOFINS ?? '76.00');
-    setBuVICMS(item?.vICMS ?? '180.00');
-    setBuVIS(item?.vIS ?? '20.00');
+    setBuVProd(item?.vProd ?? item?.baseCalculo ?? '');
+    setBuVFrete(item?.vFrete ?? '');
+    setBuVDesc(item?.vDesc ?? '');
+    setBuVPIS(item?.vPIS ?? '');
+    setBuVCOFINS(item?.vCOFINS ?? '');
+    setBuVICMS(item?.vICMS ?? '');
+    setBuVIS(item?.vIS ?? '');
   }, [draft?.id]);
 
   const effectiveCompareSnapshot =

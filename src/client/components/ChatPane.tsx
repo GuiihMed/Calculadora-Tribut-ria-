@@ -698,20 +698,13 @@ export function ChatPane({
 
         <div className="stack">
           {internalMessages.length === 0 ? (
-            <article className="card">
-              <div className="card__header">
-                <h3 className="card__title">
-                  Pronto para analisar documentos e simular tributos
-                </h3>
-                <span className="badge badge--success">store: false</span>
-              </div>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                Envie planilhas (<code>.xlsx</code>, <code>.csv</code>), DF-e em{' '}
-                <code>.xml</code>, PDFs ou imagens, ou descreva a operação. Todos os números
-                oficiais são calculados exclusivamente pelo motor determinístico sobre o SQLite da
-                Receita Federal.
+            <div className="empty-state chat-welcome">
+              <strong>Envie um documento ou descreva sua operação</strong>
+              <p style={{ margin: 0 }}>
+                Aceita <code>.xlsx</code>, <code>.csv</code>, <code>.xml</code>, <code>.pdf</code>{' '}
+                e imagens. Os cálculos são executados pelo motor determinístico da RFB.
               </p>
-            </article>
+            </div>
           ) : (
             internalMessages.map((msg) => {
               const snap =

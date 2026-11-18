@@ -49,7 +49,6 @@ export function TopBar({
           <h1 className="topbar__title">Copiloto Fiscal &amp; Calculadora RTC</h1>
           <p className="topbar__subtitle">
             LC 214/2025 &bull; NT 2026.005 v1.00
-            {oficialDbReady === true ? ' • Base RFB Pronta' : ''}
             {oficialDbReady === false ? ' • Base RFB Indisponível' : ''}
           </p>
         </div>

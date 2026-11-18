@@ -67,24 +67,20 @@ function createBlankItem(nObj: number): ExtractionDraftItem {
     descricao: '',
     ncm: '',
     nbs: '',
-    cst: '000',
-    cClassTrib: '000001',
-    cAtivSN: '11',
-    baseCalculo: '1000.00',
-    vProd: '1000.00',
-    vFrete: '0.00',
-    vDesc: '0.00',
-    vICMS: '0.00',
-    vPIS: '0.00',
-    vCOFINS: '0.00',
+    cst: '',
+    cClassTrib: '',
+    cAtivSN: '',
+    baseCalculo: '',
+    vProd: '',
+    vFrete: '',
+    vDesc: '',
+    vICMS: '',
+    vPIS: '',
+    vCOFINS: '',
     aliquotasNominais: { pCBS: '', pIBSUF: '', pIBSMun: '' },
     pIBSSN: '',
     pCBSSN: '',
-    confidence: {
-      cst: 'medium',
-      cClassTrib: 'medium',
-      baseCalculo: 'medium',
-    },
+    confidence: {},
     missingFields: [],
   };
 }
@@ -683,53 +679,10 @@ export function StagingTab({
 
         {itens.length === 0 ? (
           <div className="empty-state">
-            <strong>Nenhum item na grade de prévia</strong>
-            <p style={{ margin: '0 0 var(--space-3)' }}>
-              Clique em &ldquo;+ Adicionar Item&rdquo;, carregue um exemplo pronto ou anexe
-              planilhas, XMLs, PDFs ou imagens no chat ao lado.
+            <strong>Nenhum item adicionado</strong>
+            <p style={{ margin: 0 }}>
+              Use &ldquo;+ Adicionar Item&rdquo; acima ou envie uma planilha, XML ou PDF no chat ao lado.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn--primary btn--sm"
-                onClick={() => {
-                  const baseDraft = createManualDraft(activeContext, sessionId);
-                  onDraftChange({
-                    ...baseDraft,
-                    itens: [
-                      {
-                        nObj: 1,
-                        descricao: 'Notebook / Equipamento de Informática (NCM 84713019)',
-                        ncm: '84713019',
-                        cst: '000',
-                        cClassTrib: '000001',
-                        baseCalculo: '1000.00',
-                        vProd: '1000.00',
-                        confidence: {
-                          descricao: 'high',
-                          ncm: 'high',
-                          cst: 'high',
-                          cClassTrib: 'high',
-                          baseCalculo: 'high',
-                        },
-                        missingFields: [],
-                      },
-                    ],
-                    requiresReview: false,
-                  });
-                }}
-              >
-                <Plus size={14} aria-hidden="true" />
-                <span>Carregar Exemplo NF-e</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn--sm"
-                onClick={handleAddItem}
-              >
-                <span>+ Item em Branco</span>
-              </button>
-            </div>
           </div>
         ) : (
           <div className="staging-items">
