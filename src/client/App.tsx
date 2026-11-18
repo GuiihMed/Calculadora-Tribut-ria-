@@ -267,6 +267,8 @@ export function App() {
               setActiveWorkbenchTab(tab);
               setMobilePane('workbench');
             }}
+            showOpenHistoryButton={!historyOpen}
+            onOpenHistory={() => setHistoryOpen(true)}
           />
         </section>
 

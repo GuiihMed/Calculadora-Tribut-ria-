@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, CheckCircle2, Loader2, Sparkles, Wrench } from 'lucide-react';
+import { Bot, CheckCircle2, Loader2, PanelLeftOpen, Sparkles, Wrench } from 'lucide-react';
 import type {
   CalcRunSnapshot,
   ExtractionDraft,
@@ -42,6 +42,8 @@ export interface ChatPaneProps {
   onSelectDraft?: (draft: ExtractionDraft) => void;
   onNavigateWorkbench?: (tab: WorkbenchTabId) => void;
   onRetryForceLocal?: (error: RemoteEngineErrorInfo, originalPrompt?: string) => void;
+  showOpenHistoryButton?: boolean;
+  onOpenHistory?: () => void;
 }
 
 interface UploadedBatch {
@@ -96,6 +98,8 @@ export function ChatPane({
   onSelectDraft,
   onNavigateWorkbench,
   onRetryForceLocal,
+  showOpenHistoryButton = false,
+  onOpenHistory,
 }: ChatPaneProps) {
   const [internalMessages, setInternalMessages] = useState<ChatMessageItem[]>(messages);
   const [localSnapshotsById, setLocalSnapshotsById] = useState<Record<string, CalcRunSnapshot>>({});
@@ -649,7 +653,18 @@ export function ChatPane({
   return (
     <>
       <div className="pane-header">
-        <div className="pane-header__brand">
+        <div className="pane-header__brand" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.5rem' }}>
+          {showOpenHistoryButton && onOpenHistory && (
+            <button
+              type="button"
+              className="history-sidebar__close"
+              aria-label="Abrir histórico"
+              title="Abrir histórico"
+              onClick={onOpenHistory}
+            >
+              <PanelLeftOpen size={16} aria-hidden="true" />
+            </button>
+          )}
           <h2 className="pane-header__title">
             <Bot
               size={16}
@@ -658,14 +673,7 @@ export function ChatPane({
             />
             Copiloto Fiscal Gemini &bull; Zero Alucinação
           </h2>
-          <span className="pane-header__status">
-            <span className="pane-header__status-dot" aria-hidden="true" />
-            <span>{sessionId ? 'Conectado ao Motor RFB • Sessão ativa' : 'Conectado ao Motor RFB • Modo livre'}</span>
-          </span>
         </div>
-        <span className="badge badge--info">
-          {sessionId ? 'Sessão ativa' : 'Modo livre'}
-        </span>
       </div>
 
       <div ref={scrollRef} className="pane-scroll" aria-live="polite">

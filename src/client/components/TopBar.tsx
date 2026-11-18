@@ -1,11 +1,10 @@
-import { History, Plus } from 'lucide-react';
 import type { EngineCapabilityKey, EngineCapabilityStatus, EngineStatusMap } from '../../shared/types/fiscal';
 
 export interface TopBarProps {
   engineStatus: EngineStatusMap | null;
   oficialDbReady: boolean | null;
-  onNewSession: () => void;
-  onOpenHistory: () => void;
+  onNewSession?: () => void;
+  onOpenHistory?: () => void;
   sessionCount?: number;
 }
 
@@ -35,9 +34,6 @@ function getBadgeVariantClass(cap?: EngineCapabilityStatus): string {
 export function TopBar({
   engineStatus,
   oficialDbReady,
-  onNewSession,
-  onOpenHistory,
-  sessionCount,
 }: TopBarProps) {
   return (
     <header className="topbar">
@@ -71,20 +67,6 @@ export function TopBar({
             </span>
           );
         })}
-      </div>
-
-      <div className="topbar__actions">
-        <button type="button" className="btn btn--navy-ghost" onClick={onOpenHistory}>
-          <History size={15} aria-hidden="true" />
-          <span>
-            Histórico &amp; Sessões{typeof sessionCount === 'number' && sessionCount > 0 ? ` (${sessionCount})` : ''}
-          </span>
-        </button>
-
-        <button type="button" className="btn btn--primary" onClick={onNewSession}>
-          <Plus size={15} aria-hidden="true" />
-          <span>Nova Sessão</span>
-        </button>
       </div>
     </header>
   );

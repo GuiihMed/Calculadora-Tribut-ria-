@@ -84,17 +84,11 @@ describe('Task 10 Frontend Shell & API Client', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders TopBar with 3 per-capability engine badges and action buttons', () => {
-    const onNewSession = vi.fn();
-    const onOpenHistory = vi.fn();
-
+  it('renders TopBar with 3 per-capability engine badges', () => {
     render(
       <TopBar
         engineStatus={MOCK_ENGINES}
         oficialDbReady={true}
-        sessionCount={2}
-        onNewSession={onNewSession}
-        onOpenHistory={onOpenHistory}
       />,
     );
 
@@ -104,12 +98,6 @@ describe('Task 10 Frontend Shell & API Client', () => {
     expect(screen.getByText('DANFSe:')).toBeInTheDocument();
     expect(screen.getAllByText('Motor Local (TS)')).toHaveLength(2);
     expect(screen.getByText('Oficial RFB (Remoto)')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /Nova Sessão/i }));
-    expect(onNewSession).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByRole('button', { name: /Histórico & Sessões/i }));
-    expect(onOpenHistory).toHaveBeenCalledTimes(1);
   });
 
   it('renders native HistoryDialog with aria-labelledby and without role="dialog" or aria-modal', () => {
