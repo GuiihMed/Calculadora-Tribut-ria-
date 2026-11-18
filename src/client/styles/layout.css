@@ -969,6 +969,25 @@ dialog::backdrop {
   animation: rtc-spin 0.9s linear infinite;
 }
 
+@keyframes rtc-bot-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-2px) rotate(-4deg);
+  }
+  70% {
+    transform: translateY(1px) rotate(4deg);
+  }
+}
+
+.bot-icon-animated {
+  color: var(--color-primary);
+  animation: rtc-bot-float 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
 .tool-activity-bar {
   display: flex;
   flex-wrap: wrap;

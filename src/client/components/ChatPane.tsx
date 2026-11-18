@@ -668,11 +668,12 @@ export function ChatPane({
           )}
           <h2 className="pane-header__title">
             <Bot
-              size={16}
+              size={17}
               aria-hidden="true"
+              className="bot-icon-animated"
               style={{ verticalAlign: 'text-bottom', marginInlineEnd: '0.375rem' }}
             />
-            Copiloto Fiscal Gemini &bull; Zero Alucinação
+            Copiloto Fiscal
           </h2>
         </div>
       </div>

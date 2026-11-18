@@ -370,7 +370,7 @@ describe('Task 11 Chat Copilot Pane, FileDropComposer & MessageBubble', () => {
 
     const liveRegion = container.querySelector('[aria-live="polite"]');
     expect(liveRegion).not.toBeNull();
-    expect(screen.getByText(/Copiloto Fiscal Gemini • Zero Alucinação/i)).toBeInTheDocument();
+    expect(screen.getByText(/Copiloto Fiscal/i)).toBeInTheDocument();
 
     // Upload a PDF file
     const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
