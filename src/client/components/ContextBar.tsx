@@ -45,7 +45,7 @@ export function ContextBar({ context, onContextPatch }: ContextBarProps) {
   const [ufs, setUfs] = useState<UfLookupItem[]>([]);
   const [municipios, setMunicipios] = useState<MunicipioLookupItem[]>([]);
 
-  const uf = (context.uf ?? 'RS').trim();
+  const uf = (context.uf ?? 'PB').trim();
   const regime = context.regime ?? 'regime-regular';
   const transitionBadge = getTransitionBadge(context.dhFatoGerador);
 

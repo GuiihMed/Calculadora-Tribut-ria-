@@ -28,8 +28,8 @@ export const DEFAULT_OPERATION_CONTEXT: Partial<OperationContext> = {
   regime: 'regime-regular',
   dhFatoGerador: '2026-07-01',
   tipoDfe: '55',
-  uf: 'RS',
-  municipio: 4314902,
+  uf: 'PB',
+  municipio: 2507507,
   crt: 1,
   tpRegimeIBSCBS: 2,
 };

@@ -1,4 +1,4 @@
-import { History, Plus, ShieldCheck } from 'lucide-react';
+import { History, Plus } from 'lucide-react';
 import type { EngineCapabilityKey, EngineCapabilityStatus, EngineStatusMap } from '../../shared/types/fiscal';
 
 export interface TopBarProps {
@@ -72,13 +72,6 @@ export function TopBar({
             </span>
           );
         })}
-
-        {oficialDbReady === true && (
-          <span className="engine-badge engine-badge--remote" title="SQLite oficial RFB aberto em mode=ro">
-            <ShieldCheck size={13} aria-hidden="true" />
-            <span>SQLite RFB RO</span>
-          </span>
-        )}
       </div>
 
       <div className="topbar__actions">
