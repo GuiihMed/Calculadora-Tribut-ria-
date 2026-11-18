@@ -26,6 +26,14 @@ function getApp(): Promise<FastifyInstance> {
       const router = new FiscalEngineRouter({ db: oficialDb, repo });
       const orchestrator = new GeminiOrchestrator({ repo, router, store });
 
+      const vercelOrigins = [
+        process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
+        process.env.VERCEL_PROJECT_PRODUCTION_URL
+          ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : '',
+        'https://calculadora-reforma-tributaria-omega.vercel.app',
+      ].filter((origin) => origin.length > 0);
+
       const app = await buildApp({
         db: oficialDb,
         repo,
@@ -33,6 +41,7 @@ function getApp(): Promise<FastifyInstance> {
         router,
         orchestrator,
         logger,
+        allowedOrigins: vercelOrigins,
         staticDir: path.resolve(process.cwd(), 'dist', 'client'),
       });
       await app.ready();
