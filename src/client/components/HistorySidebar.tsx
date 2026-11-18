@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Calculator,
   ChevronLeft,
@@ -60,6 +60,19 @@ export function HistorySidebar({
 }: HistorySidebarProps) {
   const [query, setQuery] = useState('');
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && typeof window !== 'undefined' && window.innerWidth <= 1120) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) {
     return null;
   }
@@ -74,7 +87,13 @@ export function HistorySidebar({
     : sessions;
 
   return (
-    <aside className="history-sidebar" aria-label="Histórico de conversas e cálculos">
+    <>
+      <div
+        className="history-backdrop"
+        aria-hidden="true"
+        onClick={onClose}
+      />
+      <aside className="history-sidebar" aria-label="Histórico de conversas e cálculos">
       <div className="history-sidebar__header">
         <div className="history-sidebar__search-wrap">
           <Search size={13} className="history-sidebar__search-icon" aria-hidden="true" />
@@ -121,6 +140,7 @@ export function HistorySidebar({
                     <button
                       type="button"
                       className={`history-sidebar__item ${isActive ? 'history-sidebar__item--active' : ''}`}
+                      aria-current={isActive ? 'true' : undefined}
                       onClick={() => onSelectSession(session.id)}
                     >
                       <span className="history-sidebar__item-title">
@@ -186,5 +206,6 @@ export function HistorySidebar({
         </button>
       </div>
     </aside>
+    </>
   );
 }

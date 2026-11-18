@@ -659,6 +659,7 @@ export function ChatPane({
               type="button"
               className="history-sidebar__close"
               aria-label="Abrir histórico"
+              aria-expanded={false}
               title="Abrir histórico"
               onClick={onOpenHistory}
             >

@@ -171,6 +171,10 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <a href="#main-workspace" className="skip-link">
+        Pular para a área de trabalho
+      </a>
+
       <TopBar
         engineStatus={engineStatus}
         oficialDbReady={oficialDbReady}
@@ -202,7 +206,7 @@ export function App() {
         </button>
       </nav>
 
-      <main className={`split-workspace ${historyOpen ? 'split-workspace--with-history' : ''}`}>
+      <main id="main-workspace" className={`split-workspace ${historyOpen ? 'split-workspace--with-history' : ''}`}>
         {/* Left Sidebar: Histórico estilo Gemini */}
         <HistorySidebar
           open={historyOpen}
