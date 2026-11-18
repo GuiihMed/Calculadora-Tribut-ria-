@@ -685,9 +685,51 @@ export function StagingTab({
           <div className="empty-state">
             <strong>Nenhum item na grade de prévia</strong>
             <p style={{ margin: '0 0 var(--space-3)' }}>
-              Clique em &ldquo;+ Adicionar Item&rdquo; para iniciar uma simulação manual ou
-              anexe planilhas, XMLs, PDFs ou imagens no chat ao lado.
+              Clique em &ldquo;+ Adicionar Item&rdquo;, carregue um exemplo pronto ou anexe
+              planilhas, XMLs, PDFs ou imagens no chat ao lado.
             </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn--primary btn--sm"
+                onClick={() => {
+                  const baseDraft = createManualDraft(activeContext, sessionId);
+                  onDraftChange({
+                    ...baseDraft,
+                    itens: [
+                      {
+                        nObj: 1,
+                        descricao: 'Produto Tributado Padrão (Ex.: Eletrônico)',
+                        ncm: '85171231',
+                        cst: '000',
+                        cClassTrib: '000001',
+                        baseCalculo: '1000.00',
+                        vProd: '1000.00',
+                        confidence: {
+                          descricao: 'high',
+                          ncm: 'high',
+                          cst: 'high',
+                          cClassTrib: 'high',
+                          baseCalculo: 'high',
+                        },
+                        missingFields: [],
+                      },
+                    ],
+                    requiresReview: false,
+                  });
+                }}
+              >
+                <Plus size={14} aria-hidden="true" />
+                <span>Carregar Exemplo NF-e</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={handleAddItem}
+              >
+                <span>+ Item em Branco</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="staging-items">

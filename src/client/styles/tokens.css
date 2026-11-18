@@ -6,27 +6,27 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Surfaces (Editorial Brazilian Gov / Fintech High-Contrast Light) */
-  --bg-canvas: #f8fafc;
+  /* Surfaces (Modern Editorial Gov/Fintech High-Contrast Light) */
+  --bg-canvas: #f4f6fa;
   --bg-surface: #ffffff;
   --bg-subtle: #f1f5f9;
   --bg-muted: #e2e8f0;
-  --bg-navy: #0f172a;
-  --bg-navy-elevated: #1e293b;
+  --bg-navy: #0b1220;
+  --bg-navy-elevated: #162033;
   --bg-code-dark: #0f172a;
 
   /* Text */
   --text-primary: #0f172a;
   --text-secondary: #334155;
-  --text-muted: #475569;
+  --text-muted: #64748b;
   --text-on-navy: #f8fafc;
   --text-on-navy-muted: #cbd5e1;
   --text-code-dark: #f8fafc;
 
   /* Borders */
-  --border-subtle: #e2e8f0;
+  --border-subtle: #e5e9f2;
   --border-strong: #cbd5e1;
-  --border-navy: #334155;
+  --border-navy: #24324b;
 
   /* Brand & Semantic Accents */
   --color-primary: #0284c7;
@@ -55,14 +55,14 @@
   --space-6: 1.5rem;
 
   /* Radii & Shadows */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
   --radius-full: 9999px;
 
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
-  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.04);
-  --shadow-lg: 0 18px 36px -8px rgb(15 23 42 / 0.22);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 1px -1px rgb(15 23 42 / 0.03);
+  --shadow-md: 0 6px 18px -4px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 22px 44px -10px rgb(15 23 42 / 0.24);
 
   /* Focus ring */
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #0284c7;
