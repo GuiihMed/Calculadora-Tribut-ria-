@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Bot, CheckCircle2, Loader2, PanelLeftOpen, Sparkles, Wrench } from 'lucide-react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { Bot, CheckCircle2, CloudUpload, Loader2, PanelLeftOpen, Sparkles, Wrench } from 'lucide-react';
 import type {
   CalcRunSnapshot,
   ExtractionDraft,
@@ -14,9 +14,11 @@ import {
   uploadFiles,
 } from '../api/client';
 import {
+  ACCEPTED_FILE_INPUT,
   DEFAULT_QUICK_PROMPTS,
   FileDropComposer,
   type StagedAttachment,
+  validateSelectedFiles,
 } from './FileDropComposer';
 import {
   type ChatMessageItem,
@@ -111,9 +113,12 @@ export function ChatPane({
   const [activeTools, setActiveTools] = useState<ToolActivityBadge[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | undefined>(undefined);
+  const [isWelcomeDragging, setIsWelcomeDragging] = useState(false);
 
   const messagesRef = useRef<ChatMessageItem[]>(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const welcomeFileInputRef = useRef<HTMLInputElement>(null);
+  const welcomeDragDepthRef = useRef(0);
   const streamRunIdRef = useRef(0);
   const uploadRunIdRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -234,6 +239,54 @@ export function ChatPane({
         setIsUploading(false);
       }
     }
+  };
+
+  const processWelcomeFiles = (fileList: FileList | File[] | null) => {
+    if (!fileList || fileList.length === 0) {
+      return;
+    }
+    const { validFiles, errors } = validateSelectedFiles(
+      Array.from(fileList),
+      attachments.length,
+    );
+    if (errors.length > 0) {
+      setChatError(errors.join(' '));
+    }
+    if (validFiles.length > 0) {
+      void handleFilesSelected(validFiles);
+    }
+  };
+
+  const handleWelcomeDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    welcomeDragDepthRef.current += 1;
+    setIsWelcomeDragging(true);
+  };
+
+  const handleWelcomeDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isWelcomeDragging) {
+      setIsWelcomeDragging(true);
+    }
+  };
+
+  const handleWelcomeDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    welcomeDragDepthRef.current = Math.max(0, welcomeDragDepthRef.current - 1);
+    if (welcomeDragDepthRef.current === 0) {
+      setIsWelcomeDragging(false);
+    }
+  };
+
+  const handleWelcomeDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    welcomeDragDepthRef.current = 0;
+    setIsWelcomeDragging(false);
+    processWelcomeFiles(e.dataTransfer.files);
   };
 
   const handleRemoveAttachment = (id: string) => {
@@ -716,16 +769,70 @@ export function ChatPane({
         <div className="stack">
           {internalMessages.length === 0 ? (
             <div className="chat-welcome">
-              <div className="chat-welcome__icon" aria-hidden="true">
-                <Sparkles size={20} />
-              </div>
               <h3 className="chat-welcome__title">
                 O que você gostaria de analisar hoje?
               </h3>
-              <p className="chat-welcome__desc">
-                Envie um documento (<code>.xlsx</code>, <code>.csv</code>, <code>.xml</code>,{' '}
-                <code>.pdf</code> ou imagem) ou escolha um cenário abaixo.
-              </p>
+
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label="Área para enviar ou arrastar documentos fiscais"
+                className={`chat-welcome__dropzone ${isWelcomeDragging ? 'chat-welcome__dropzone--dragging' : ''} ${isUploading ? 'chat-welcome__dropzone--uploading' : ''}`}
+                onClick={() => {
+                  if (!isUploading && !isStreaming) {
+                    welcomeFileInputRef.current?.click();
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && !isUploading && !isStreaming) {
+                    e.preventDefault();
+                    welcomeFileInputRef.current?.click();
+                  }
+                }}
+                onDragEnter={handleWelcomeDragEnter}
+                onDragOver={handleWelcomeDragOver}
+                onDragLeave={handleWelcomeDragLeave}
+                onDrop={handleWelcomeDrop}
+              >
+                <input
+                  ref={welcomeFileInputRef}
+                  type="file"
+                  multiple
+                  accept={ACCEPTED_FILE_INPUT}
+                  className="composer__file-input"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  onChange={(e) => {
+                    processWelcomeFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                <div className="chat-welcome__upload-orb" aria-hidden="true">
+                  {isUploading ? (
+                    <Loader2 size={24} className="spin" />
+                  ) : (
+                    <CloudUpload size={24} className="upload-icon-animated" />
+                  )}
+                </div>
+                <div className="chat-welcome__drop-text">
+                  <strong>
+                    {isUploading
+                      ? 'Recebendo arquivo para análise...'
+                      : isWelcomeDragging
+                        ? 'Solte aqui — pronto para receber seu arquivo!'
+                        : 'Clique para enviar ou arraste um documento'}
+                  </strong>
+                  <span>Máximo de 5 arquivos por lote (até 5 MB cada)</span>
+                </div>
+                <div className="chat-welcome__formats" aria-label="Formatos aceitos">
+                  <span className="format-pill">.xlsx</span>
+                  <span className="format-pill">.csv</span>
+                  <span className="format-pill">.xml</span>
+                  <span className="format-pill">.pdf</span>
+                  <span className="format-pill">Imagem</span>
+                </div>
+              </div>
+
               <div className="chat-welcome__prompts" aria-label="Sugestões iniciais">
                 {DEFAULT_QUICK_PROMPTS.map((prompt) => (
                   <button
