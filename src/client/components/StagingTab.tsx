@@ -244,6 +244,50 @@ export function StagingTab({
     setSelectedItemIndex(nextDraft.itens.length - 1);
   };
 
+  const handleStartPreset = (preset: 'mercadoria' | 'servico') => {
+    setCalcError(null);
+    setRemoteFailure(null);
+    const baseItem = createBlankItem(1);
+    const presetItem: ExtractionDraftItem =
+      preset === 'mercadoria'
+        ? {
+            ...baseItem,
+            descricao: 'Bebida não alcoólica (Exemplo)',
+            ncm: '22021000',
+            cst: '000',
+            cClassTrib: '000001',
+            cAtivSN: '11',
+            baseCalculo: '1000.00',
+            vProd: '1000.00',
+          }
+        : {
+            ...baseItem,
+            descricao: 'Serviço de consultoria (Exemplo)',
+            nbs: '101011000',
+            cst: '000',
+            cClassTrib: '000001',
+            cAtivSN: '11',
+            baseCalculo: '5000.00',
+            vProd: '5000.00',
+          };
+
+    onDraftChange({
+      id: `manual-${Date.now()}`,
+      sessionId: sessionId ?? undefined,
+      sourceType: 'manual',
+      filename:
+        preset === 'mercadoria'
+          ? 'Calculadora Manual — Mercadoria'
+          : 'Calculadora Manual — Serviço',
+      context: activeContext,
+      itens: [presetItem],
+      warnings: [],
+      requiresReview: false,
+      createdAt: new Date().toISOString(),
+    });
+    setSelectedItemIndex(0);
+  };
+
   const handleRemoveItem = (index: number) => {
     if (!draft) return;
     setLookup(null);
@@ -678,11 +722,40 @@ export function StagingTab({
         )}
 
         {itens.length === 0 ? (
-          <div className="empty-state">
-            <strong>Nenhum item adicionado</strong>
-            <p style={{ margin: 0 }}>
-              Use &ldquo;+ Adicionar Item&rdquo; acima ou envie uma planilha, XML ou PDF no chat ao lado.
+          <div className="manual-calc-empty">
+            <div className="manual-calc-empty__icon" aria-hidden="true">
+              <Calculator size={22} />
+            </div>
+            <h4 className="manual-calc-empty__title">Calculadora Manual ou Lote</h4>
+            <p className="manual-calc-empty__desc">
+              Preencha os campos fiscais manualmente (NCM/NBS, CST, cClassTrib, Base de Cálculo e alíquotas) ou envie XML, PDF ou planilha no chat ao lado.
             </p>
+            <div className="manual-calc-empty__actions">
+              <button
+                type="button"
+                className="btn btn--primary btn--sm"
+                onClick={handleAddItem}
+              >
+                <Plus size={14} aria-hidden="true" />
+                <span>Iniciar Cálculo Manual</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={() => handleStartPreset('mercadoria')}
+              >
+                <Sparkles size={13} aria-hidden="true" />
+                <span>Exemplo: Mercadoria</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={() => handleStartPreset('servico')}
+              >
+                <Sparkles size={13} aria-hidden="true" />
+                <span>Exemplo: Serviço</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="staging-items">

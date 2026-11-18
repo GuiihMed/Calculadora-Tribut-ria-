@@ -16,7 +16,7 @@ import {
   updateSessionContext,
 } from './api/client';
 import { ChatPane } from './components/ChatPane';
-import { HistoryDialog } from './components/HistoryDialog';
+import { HistorySidebar } from './components/HistorySidebar';
 import type { ChatMessageItem, WorkbenchTabId } from './components/MessageBubble';
 import { TopBar } from './components/TopBar';
 import { WorkbenchPane } from './components/WorkbenchPane';
@@ -49,7 +49,9 @@ export function App() {
   const [activeSnapshot, setActiveSnapshot] = useState<CalcRunSnapshot | null>(null);
   const [activeWorkbenchTab, setActiveWorkbenchTab] = useState<WorkbenchTab>('staging');
   const [mobilePane, setMobilePane] = useState<MobilePane>('chat');
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1280 : false,
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const snapshotsById = useMemo(
@@ -176,7 +178,7 @@ export function App() {
         onNewSession={() => {
           void handleNewSession();
         }}
-        onOpenHistory={() => setHistoryOpen(true)}
+        onOpenHistory={() => setHistoryOpen((prev) => !prev)}
       />
 
       <nav className="mobile-pane-switcher" aria-label="Alternar área de trabalho">
@@ -200,7 +202,7 @@ export function App() {
         </button>
       </nav>
 
-      <main className="split-workspace">
+      <main className={`split-workspace ${historyOpen ? 'split-workspace--with-history' : ''}`}>
         {/* Left Pane: Copiloto Fiscal (Chat Gemini) */}
         <section
           aria-label="Copiloto Fiscal Gemini"
@@ -275,23 +277,28 @@ export function App() {
             }}
           />
         </section>
-      </main>
 
-      <HistoryDialog
-        open={historyOpen}
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        calcRuns={sessionCalcRuns}
-        activeCalcRunId={activeSnapshot?.id ?? null}
-        onClose={() => setHistoryOpen(false)}
-        onSelectSession={(sessionId) => {
-          void loadSessionById(sessionId);
-        }}
-        onSelectSnapshot={(snapshot) => {
-          setActiveSnapshot(snapshot);
-          setActiveWorkbenchTab(snapshot.kind === 'comparativo' ? 'compare' : 'results');
-        }}
-      />
+        {/* Collapsible History Sidebar */}
+        <HistorySidebar
+          open={historyOpen}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          calcRuns={sessionCalcRuns}
+          activeCalcRunId={activeSnapshot?.id ?? null}
+          onClose={() => setHistoryOpen(false)}
+          onNewSession={() => {
+            void handleNewSession();
+          }}
+          onSelectSession={(sessionId) => {
+            void loadSessionById(sessionId);
+          }}
+          onSelectSnapshot={(snapshot) => {
+            setActiveSnapshot(snapshot);
+            setActiveWorkbenchTab(snapshot.kind === 'comparativo' ? 'compare' : 'results');
+            setMobilePane('workbench');
+          }}
+        />
+      </main>
     </div>
   );
 }

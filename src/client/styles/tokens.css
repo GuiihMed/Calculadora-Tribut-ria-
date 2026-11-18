@@ -6,13 +6,13 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Surfaces (Modern Editorial Gov/Fintech High-Contrast Light) */
-  --bg-canvas: #f4f6fa;
+  /* Surfaces (Light-First Minimalist Fintech/GovTech) */
+  --bg-canvas: #f8fafc;
   --bg-surface: #ffffff;
   --bg-subtle: #f1f5f9;
   --bg-muted: #e2e8f0;
-  --bg-navy: #0b1220;
-  --bg-navy-elevated: #162033;
+  --bg-navy: #0f172a;
+  --bg-navy-elevated: #1e293b;
   --bg-code-dark: #0f172a;
 
   /* Text */
@@ -24,11 +24,11 @@
   --text-code-dark: #f8fafc;
 
   /* Borders */
-  --border-subtle: #e5e9f2;
+  --border-subtle: #e2e8f0;
   --border-strong: #cbd5e1;
-  --border-navy: #24324b;
+  --border-navy: #e2e8f0;
 
-  /* Brand & Semantic Accents */
+  /* Brand & Semantic Accents (Sky/Cobalt Blue) */
   --color-primary: #0284c7;
   --color-primary-hover: #0369a1;
   --color-primary-soft: #e0f2fe;
@@ -60,9 +60,9 @@
   --radius-lg: 1rem;
   --radius-full: 9999px;
 
-  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 1px -1px rgb(15 23 42 / 0.03);
-  --shadow-md: 0 6px 18px -4px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.04);
-  --shadow-lg: 0 22px 44px -10px rgb(15 23 42 / 0.24);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.03);
+  --shadow-md: 0 4px 14px -3px rgb(15 23 42 / 0.06), 0 2px 4px -2px rgb(15 23 42 / 0.03);
+  --shadow-lg: 0 18px 36px -8px rgb(15 23 42 / 0.14);
 
   /* Focus ring */
   --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px #0284c7;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, CheckCircle2, Loader2, Wrench } from 'lucide-react';
+import { Bot, CheckCircle2, Loader2, Sparkles, Wrench } from 'lucide-react';
 import type {
   CalcRunSnapshot,
   ExtractionDraft,
@@ -14,6 +14,7 @@ import {
   uploadFiles,
 } from '../api/client';
 import {
+  DEFAULT_QUICK_PROMPTS,
   FileDropComposer,
   type StagedAttachment,
 } from './FileDropComposer';
@@ -698,12 +699,34 @@ export function ChatPane({
 
         <div className="stack">
           {internalMessages.length === 0 ? (
-            <div className="empty-state chat-welcome">
-              <strong>Envie um documento ou descreva sua operação</strong>
-              <p style={{ margin: 0 }}>
-                Aceita <code>.xlsx</code>, <code>.csv</code>, <code>.xml</code>, <code>.pdf</code>{' '}
-                e imagens. Os cálculos são executados pelo motor determinístico da RFB.
+            <div className="chat-welcome">
+              <div className="chat-welcome__icon" aria-hidden="true">
+                <Sparkles size={22} />
+              </div>
+              <h3 className="chat-welcome__title">
+                Olá! Como posso ajudar na apuração hoje?
+              </h3>
+              <p className="chat-welcome__desc">
+                Envie um documento (<code>.xlsx</code>, <code>.csv</code>, <code>.xml</code>,{' '}
+                <code>.pdf</code> ou imagem) ou escolha um cenário abaixo. Todos os
+                cálculos usam o motor determinístico da RFB.
               </p>
+              <div className="chat-welcome__prompts" aria-label="Sugestões iniciais">
+                {DEFAULT_QUICK_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    className="chat-welcome__prompt-btn"
+                    disabled={isStreaming || isUploading}
+                    onClick={() => {
+                      void handleSendMessage(prompt);
+                    }}
+                  >
+                    <Sparkles size={13} aria-hidden="true" />
+                    <span>{prompt}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             internalMessages.map((msg) => {
