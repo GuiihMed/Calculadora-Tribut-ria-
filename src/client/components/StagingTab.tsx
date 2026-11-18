@@ -699,8 +699,8 @@ export function StagingTab({
                     itens: [
                       {
                         nObj: 1,
-                        descricao: 'Produto Tributado Padrão (Ex.: Eletrônico)',
-                        ncm: '85171231',
+                        descricao: 'Notebook / Equipamento de Informática (NCM 84713019)',
+                        ncm: '84713019',
                         cst: '000',
                         cClassTrib: '000001',
                         baseCalculo: '1000.00',
