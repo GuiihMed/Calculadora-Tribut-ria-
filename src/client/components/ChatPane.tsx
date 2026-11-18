@@ -649,14 +649,20 @@ export function ChatPane({
   return (
     <>
       <div className="pane-header">
-        <h2 className="pane-header__title">
-          <Bot
-            size={16}
-            aria-hidden="true"
-            style={{ verticalAlign: 'text-bottom', marginInlineEnd: '0.375rem' }}
-          />
-          Copiloto Fiscal Gemini &bull; Zero Alucinação
-        </h2>
+        <div className="pane-header__brand">
+          <h2 className="pane-header__title">
+            <Bot
+              size={16}
+              aria-hidden="true"
+              style={{ verticalAlign: 'text-bottom', marginInlineEnd: '0.375rem' }}
+            />
+            Copiloto Fiscal Gemini &bull; Zero Alucinação
+          </h2>
+          <span className="pane-header__status">
+            <span className="pane-header__status-dot" aria-hidden="true" />
+            <span>{sessionId ? 'Conectado ao Motor RFB • Sessão ativa' : 'Conectado ao Motor RFB • Modo livre'}</span>
+          </span>
+        </div>
         <span className="badge badge--info">
           {sessionId ? 'Sessão ativa' : 'Modo livre'}
         </span>
@@ -701,15 +707,14 @@ export function ChatPane({
           {internalMessages.length === 0 ? (
             <div className="chat-welcome">
               <div className="chat-welcome__icon" aria-hidden="true">
-                <Sparkles size={22} />
+                <Sparkles size={20} />
               </div>
               <h3 className="chat-welcome__title">
-                Olá! Como posso ajudar na apuração hoje?
+                O que você gostaria de analisar hoje?
               </h3>
               <p className="chat-welcome__desc">
                 Envie um documento (<code>.xlsx</code>, <code>.csv</code>, <code>.xml</code>,{' '}
-                <code>.pdf</code> ou imagem) ou escolha um cenário abaixo. Todos os
-                cálculos usam o motor determinístico da RFB.
+                <code>.pdf</code> ou imagem) ou escolha um cenário abaixo.
               </p>
               <div className="chat-welcome__prompts" aria-label="Sugestões iniciais">
                 {DEFAULT_QUICK_PROMPTS.map((prompt) => (

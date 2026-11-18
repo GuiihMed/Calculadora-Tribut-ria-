@@ -1,4 +1,12 @@
-import { Calculator, Clock, MessageSquare, PanelLeftClose, SquarePen } from 'lucide-react';
+import { useState } from 'react';
+import {
+  Calculator,
+  ChevronLeft,
+  Clock,
+  MessageSquare,
+  Plus,
+  Search,
+} from 'lucide-react';
 import type { CalcRunSnapshot, WorkspaceSession } from '../../shared/types/fiscal';
 
 export interface HistorySidebarProps {
@@ -50,21 +58,35 @@ export function HistorySidebar({
   onSelectSession,
   onSelectSnapshot,
 }: HistorySidebarProps) {
+  const [query, setQuery] = useState('');
+
   if (!open) {
     return null;
   }
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredSessions = normalizedQuery
+    ? sessions.filter((s) => {
+        const title = (s.title || 'Simulação sem título').toLowerCase();
+        const regime = (s.activeContext.regime ?? '').toLowerCase();
+        return title.includes(normalizedQuery) || regime.includes(normalizedQuery);
+      })
+    : sessions;
+
   return (
     <aside className="history-sidebar" aria-label="Histórico de conversas e cálculos">
       <div className="history-sidebar__header">
-        <button
-          type="button"
-          className="history-sidebar__new-btn"
-          onClick={onNewSession}
-        >
-          <SquarePen size={15} aria-hidden="true" />
-          <span>Nova conversa</span>
-        </button>
+        <div className="history-sidebar__search-wrap">
+          <Search size={13} className="history-sidebar__search-icon" aria-hidden="true" />
+          <input
+            type="search"
+            className="history-sidebar__search"
+            placeholder="Buscar..."
+            aria-label="Buscar no histórico"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
 
         <button
           type="button"
@@ -73,7 +95,7 @@ export function HistorySidebar({
           title="Recolher histórico"
           onClick={onClose}
         >
-          <PanelLeftClose size={16} aria-hidden="true" />
+          <ChevronLeft size={15} aria-hidden="true" />
         </button>
       </div>
 
@@ -82,13 +104,13 @@ export function HistorySidebar({
           <p className="history-sidebar__section-label">
             Recentes
           </p>
-          {sessions.length === 0 ? (
+          {filteredSessions.length === 0 ? (
             <p className="history-sidebar__empty">
-              Nenhuma conversa salva ainda.
+              {normalizedQuery ? 'Nenhuma conversa encontrada.' : 'Nenhuma conversa salva ainda.'}
             </p>
           ) : (
             <ul className="history-sidebar__list">
-              {sessions.map((session) => {
+              {filteredSessions.map((session) => {
                 const isActive = session.id === activeSessionId;
                 const regimeLabel = session.activeContext.regime
                   ? REGIME_LABELS[session.activeContext.regime] ?? session.activeContext.regime
@@ -151,6 +173,17 @@ export function HistorySidebar({
             </ul>
           </section>
         )}
+      </div>
+
+      <div className="history-sidebar__footer">
+        <button
+          type="button"
+          className="history-sidebar__new-btn"
+          onClick={onNewSession}
+        >
+          <Plus size={15} aria-hidden="true" />
+          <span>Nova conversa</span>
+        </button>
       </div>
     </aside>
   );
